@@ -1,26 +1,49 @@
+/* src/app/globals.css */
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+@theme {
+  --color-canvas:  #0a0a0a;
+  --color-surface: #111111;
+  --color-node:    #1a1a1a;
+  --color-bdr:     #2a2a2a;
+  --color-accent:  #7c3aed;
+  --color-muted:   #a0a0a0;
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
+  --animate-pulse-glow: pulseGlow 1.5s ease-in-out infinite;
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+  @keyframes pulseGlow {
+    0%, 100% { box-shadow: 0 0 0px #7c3aed00; }
+    50%       { box-shadow: 0 0 24px #7c3aed99, 0 0 4px #7c3aed; }
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+:root {
+  --bg-primary:     #0a0a0a;
+  --bg-secondary:   #111111;
+  --bg-node:        #1a1a1a;
+  --border:         #2a2a2a;
+  --accent:         #7c3aed;
+  --accent-glow:    #7c3aed66;
+  --text-primary:   #ffffff;
+  --text-secondary: #a0a0a0;
+  --success:        #22c55e;
+  --error:          #ef4444;
+  --warning:        #eab308;
+  --dot-grid:       #1e1e1e;
 }
+
+/* React Flow overrides */
+.react-flow__renderer   { background: transparent !important; }
+.react-flow__background { background: var(--bg-primary) !important; }
+.react-flow__minimap    { background: var(--bg-secondary) !important; border: 1px solid var(--border); border-radius: 8px; }
+.react-flow__controls   { background: var(--bg-secondary) !important; border: 1px solid var(--border); border-radius: 8px; }
+.react-flow__controls button       { background: var(--bg-secondary) !important; border-color: var(--border) !important; color: var(--text-secondary) !important; }
+.react-flow__controls button:hover { background: var(--bg-node) !important; color: var(--text-primary) !important; }
+
+/* Scrollbar */
+::-webkit-scrollbar       { width: 4px; }
+::-webkit-scrollbar-track { background: var(--bg-secondary); }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+/* Animated edge dash */
+@keyframes dash { to { stroke-dashoffset: -18; } }
