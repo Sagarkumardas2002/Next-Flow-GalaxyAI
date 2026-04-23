@@ -141,38 +141,34 @@ export default function FlowCanvas() {
           pannable
           zoomable
           style={{
-            background: "rgba(15,15,15,0.85)",
+            background: "rgba(80,80,80,0.55)",
             backdropFilter: "blur(10px)",
-            border: "1px solid rgba(255,255,255,0.05)",
-            borderRadius: "18px",
-            padding: "6px",
+            border: "1px solid rgba(255,255,255,0.18)",
+            borderRadius: "4px",
+            padding: "8px",
+            overflow: "hidden", // 👈 this clips the inner SVG to the rounded corners
             boxShadow:
-              "0 10px 30px rgba(0,0,0,0.6), inset 0 0 0 1px rgba(255,255,255,0.02)",
+              "0 4px 15px rgba(0,0,0,0.35), inset 0 0 0 1px rgba(255,255,255,0.05)",
           }}
           nodeStrokeWidth={3}
           nodeColor={(n) => {
             switch (n.type) {
               case "videoNode":
-                return "#7FFFD4"; // 🌊 Aquamarine
-
+                return "#2dd4bf"; // bright teal
               case "imageNode":
-                return "#F5E6CA"; // 🍦 Light Vanilla
-
+                return "#f59e0b"; // bright amber
               case "extractNode":
-                return "#22c55e"; // ✅ Green
-
+                return "#22c55e"; // bright green
               case "cropNode":
-                return "#f87171"; // 🔴 Light Red
-
+                return "#f43f5e"; // bright rose
               case "llmNode":
-                return "#7c3aed"; // 🟣 Purple (same)
-
+                return "#a855f7"; // bright purple
               case "textNode":
               default:
-                return "#3f3f46"; // ⚫ Default gray
+                return "#94a3b8"; // slate
             }
           }}
-          maskColor="rgba(0,0,0,0.6)"
+          maskColor="rgba(148, 163, 184, 0.8)"
         />
       </ReactFlow>
     </div>
