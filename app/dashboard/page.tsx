@@ -1,7 +1,11 @@
 
 
 import { currentUser } from "@clerk/nextjs/server";
-import { UserButton } from "@clerk/nextjs";
+
+import LeftSidebar from "./components/sidebar/LeftSidebar";
+import RightSidebar from "./components/sidebar/RightSidebar";
+import FlowCanvas from "./components/canvas/FlowCanvas";
+import Topbar from "./components/topbar/Topbar";
 
 export default async function DashboardPage() {
   const user = await currentUser();
@@ -13,33 +17,18 @@ export default async function DashboardPage() {
     "User";
 
   return (
-    <div className="min-h-screen bg-gray-950 text-white">
-      <header className="w-full flex items-center justify-between px-6 py-4 border-b border-white/10">
-        <h2 className="text-lg font-semibold">Dashboard</h2>
+    <div className="h-screen flex bg-black text-white">
+      <LeftSidebar />
 
-        <div className="flex items-center gap-3">
-          <span className="text-sm text-gray-300 hidden sm:block">
-            {displayName}
-          </span>
+      <div className="flex-1 flex flex-col">
+        <Topbar displayName={displayName} />
 
-          {user?.imageUrl ? (
-            <UserButton />
-          ) : (
-            <div className="flex items-center gap-2">
-              <UserButton />
-              <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-sm font-bold">
-                {user?.firstName?.[0] ||
-                  user?.emailAddresses[0]?.emailAddress?.[0]?.toUpperCase() ||
-                  "U"}
-              </div>
-            </div>
-          )}
+        <div className="flex-1">
+          <FlowCanvas />
         </div>
-      </header>
+      </div>
 
-      <main className="flex items-center justify-center h-[85vh]">
-        <h1 className="text-3xl font-bold">👋 Welcome, {displayName}!</h1>
-      </main>
+      <RightSidebar />
     </div>
   );
 }
