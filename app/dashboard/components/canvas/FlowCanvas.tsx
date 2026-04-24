@@ -146,7 +146,8 @@ export default function FlowCanvas() {
             border: "1px solid rgba(255,255,255,0.18)",
             borderRadius: "4px",
             padding: "8px",
-            overflow: "hidden", // 👈 this clips the inner SVG to the rounded corners
+            overflow: "hidden",
+            cursor: "pointer", // 👈 this clips the inner SVG to the rounded corners
             boxShadow:
               "0 4px 15px rgba(0,0,0,0.35), inset 0 0 0 1px rgba(255,255,255,0.05)",
           }}
