@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useWorkflow } from "../../hooks/useWorkflow";
+import { useFlowStore } from "../../hooks/useFlowStore";
 import type { Node, Edge } from "@xyflow/react";
 
 type Workflow = {
@@ -15,7 +16,17 @@ type Workflow = {
 };
 
 export default function RightSidebar() {
-  const { getWorkflows, loadWorkflow, deleteWorkflow } = useWorkflow();
+  const {
+    getWorkflows,
+    loadWorkflow,
+    deleteWorkflow,
+    clearWorkflow,
+    restoreLastWorkflow,
+  } = useWorkflow();
+
+  // 🔥 Track which workflow is currently open on the canvas
+  const currentWorkflowId = useFlowStore((s) => s.workflowId);
+
   const [workflows, setWorkflows] = useState<Workflow[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -29,13 +40,15 @@ export default function RightSidebar() {
         setWorkflows(data || []);
         setLoading(false);
       }
+
+      // 🔥 After workflows load, restore the last opened workflow (refresh / re-login)
+      await restoreLastWorkflow();
     };
 
     initialFetch();
 
     const handleWorkflowSaved = (e: Event) => {
       const newWorkflow = (e as CustomEvent<Workflow>).detail;
-
       setWorkflows((prev) => {
         const exists = prev.find((wf) => wf.id === newWorkflow.id);
         if (exists) {
@@ -55,7 +68,7 @@ export default function RightSidebar() {
     };
   }, []);
 
-  // ✅ DELETE HANDLER
+  // 🔥 DELETE — clears canvas + topbar name if the deleted workflow is currently open
   const handleDelete = async (id: string) => {
     const confirmDelete = confirm("Delete this workflow?");
     if (!confirmDelete) return;
@@ -64,6 +77,11 @@ export default function RightSidebar() {
 
     if (success) {
       setWorkflows((prev) => prev.filter((wf) => wf.id !== id));
+
+      // 🔥 If the deleted workflow is the one open → wipe canvas & reset topbar
+      if (id === currentWorkflowId) {
+        clearWorkflow();
+      }
     } else {
       alert("Failed to delete");
     }
@@ -139,11 +157,16 @@ export default function RightSidebar() {
                 key={wf.id}
                 onClick={() => loadWorkflow(wf)}
                 style={{ height: `${ITEM_HEIGHT}px` }}
-                className="group flex items-center gap-2 text-[11px] px-3 rounded-md bg-[#1a1a1a] border border-[#2a2a2a] hover:border-[#444] hover:bg-[#202020] transition cursor-pointer"
+                className={`group flex items-center gap-2 text-[11px] px-3 rounded-md border transition cursor-pointer
+                  ${
+                    wf.id === currentWorkflowId
+                      ? "bg-[#1e1e2e] border-purple-700/60 text-purple-300"
+                      : "bg-[#1a1a1a] border-[#2a2a2a] hover:border-[#444] hover:bg-[#202020] text-zinc-300"
+                  }`}
               >
                 <span className="flex-1 truncate">{wf.name}</span>
 
-                {/* ✅ DELETE BUTTON */}
+                {/* DELETE BUTTON */}
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
