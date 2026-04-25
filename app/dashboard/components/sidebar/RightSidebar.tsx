@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useEffect, useState } from "react";
@@ -15,7 +16,7 @@ type Workflow = {
 };
 
 export default function RightSidebar() {
-  const { getWorkflows, loadWorkflow } = useWorkflow();
+  const { getWorkflows, loadWorkflow, deleteWorkflow } = useWorkflow();
   const [workflows, setWorkflows] = useState<Workflow[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -53,7 +54,21 @@ export default function RightSidebar() {
       isMounted = false;
       window.removeEventListener("workflow-saved", handleWorkflowSaved);
     };
-  }, []); // ✅ FIXED
+  }, []);
+
+  // ✅ DELETE HANDLER
+  const handleDelete = async (id: string) => {
+    const confirmDelete = confirm("Delete this workflow?");
+    if (!confirmDelete) return;
+
+    const success = await deleteWorkflow(id);
+
+    if (success) {
+      setWorkflows((prev) => prev.filter((wf) => wf.id !== id));
+    } else {
+      alert("Failed to delete");
+    }
+  };
 
   const ITEM_HEIGHT = 36;
   const VISIBLE_COUNT = 6;
@@ -65,23 +80,18 @@ export default function RightSidebar() {
       {/* 🔥 WORKFLOWS SECTION */}
       {/* ===================== */}
       <div className="px-3 pt-4 pb-3 border-b border-[#222]">
-        {/* TITLE */}
         <h2 className="text-[13px] mb-5 font-semibold text-white text-center tracking-wide">
           Workflows
         </h2>
-        {/* DIVIDER */}
+
         <div className="h-px bg-[#222] my-3" />
 
-        {/* SCROLL AREA — fixed height always reserves space for 5 items */}
         <div
           className="overflow-y-auto space-y-1.5 pr-1"
           style={{ height: `${containerHeight}px` }}
         >
           {workflows.length === 0 && (
-            <div
-              className="flex items-center justify-center text-[10px] text-zinc-500"
-              style={{ height: `${containerHeight}px` }}
-            >
+            <div className="flex items-center justify-center text-[10px] text-zinc-500 h-full">
               No workflows yet
             </div>
           )}
@@ -95,23 +105,15 @@ export default function RightSidebar() {
             >
               <span className="flex-1 truncate">{wf.name}</span>
 
-              {/* Delete Button (UI only) */}
+              {/* ✅ DELETE BUTTON */}
               <button
-                onClick={(e) => e.stopPropagation()}
-                className="opacity-0 group-hover:opacity-100 transition-all duration-200 p-1 rounded hover:bg-red-500/20 text-zinc-500 hover:text-red-400 cursor-pointer"
-                title="Delete workflow"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleDelete(wf.id);
+                }}
+                className="opacity-0 group-hover:opacity-100 transition-all duration-200 p-1 rounded hover:bg-red-500/20 text-zinc-500 hover:text-red-400"
               >
-                <svg
-                  className="w-3.5 h-3.5"
-                  viewBox="0 0 16 16"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.5"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <path d="M2 4h12M5 4V2.5A.5.5 0 0 1 5.5 2h5a.5.5 0 0 1 .5.5V4M6 7v5M10 7v5M3 4l1 9.5A.5.5 0 0 0 4.5 14h7a.5.5 0 0 0 .5-.5L13 4" />
-                </svg>
+                🗑
               </button>
             </div>
           ))}
@@ -119,9 +121,11 @@ export default function RightSidebar() {
       </div>
 
       {/* ===================== */}
-      {/* 🔥 HISTORY SECTION   */}
+      {/* 🔥 HISTORY SECTION */}
       {/* ===================== */}
+
       <div className="mt-3" />
+
       {/* HEADER */}
       <div className="h-12 flex items-center justify-between px-3 border-b border-[#222]">
         <span className="text-[11px] font-medium text-zinc-300">History</span>
@@ -129,6 +133,7 @@ export default function RightSidebar() {
           3 runs
         </span>
       </div>
+
       {/* TABS */}
       <div className="flex gap-1 p-2 border-b border-[#222]">
         <button className="text-[10px] px-2 py-1 rounded bg-purple-500/10 text-purple-400">
@@ -138,6 +143,7 @@ export default function RightSidebar() {
           This Workflow
         </button>
       </div>
+
       {/* BODY */}
       <div className="flex-1 p-2 overflow-y-auto">
         {/* RUN #3 */}
@@ -151,24 +157,6 @@ export default function RightSidebar() {
           </div>
           <div className="text-[10px] text-zinc-500 mb-2">
             Just now · running…
-          </div>
-          <div className="ml-1 border-l border-[#333] pl-2 space-y-1">
-            <div className="flex items-center gap-1 text-[9px] text-zinc-400">
-              <div className="w-[5px] h-[5px] bg-green-500 rounded-full" />
-              Text Node · 0.1s
-            </div>
-            <div className="flex items-center gap-1 text-[9px] text-zinc-400">
-              <div className="w-[5px] h-[5px] bg-green-500 rounded-full" />
-              Upload Image · 2.3s
-            </div>
-            <div className="flex items-center gap-1 text-[9px] text-zinc-400">
-              <div className="w-[5px] h-[5px] bg-green-500 rounded-full" />
-              Extract Frame · 1.8s
-            </div>
-            <div className="flex items-center gap-1 text-[9px] text-zinc-400">
-              <div className="w-[5px] h-[5px] bg-yellow-400 rounded-full animate-pulse" />
-              Run LLM · running…
-            </div>
           </div>
         </div>
 

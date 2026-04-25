@@ -43,14 +43,23 @@ export function useWorkflow() {
     return data.data || [];
   };
 
-  // ✅ LOAD (FIXED)
+  // ✅ DELETE 🔥
+  const deleteWorkflow = async (id: string) => {
+    const res = await fetch("/api/workflow/delete", {
+      method: "DELETE",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ id }),
+    });
+
+    const data = await res.json();
+    return data.success;
+  };
+
+  // ✅ LOAD
   const loadWorkflow = (workflow: Workflow) => {
-    setWorkflow(
-      workflow.nodes,
-      workflow.edges,
-      workflow.id,
-      workflow.name, // 🔥 IMPORTANT
-    );
+    setWorkflow(workflow.nodes, workflow.edges, workflow.id, workflow.name);
   };
 
   const getRuns = async (workflowId: string): Promise<Run[]> => {
@@ -66,6 +75,7 @@ export function useWorkflow() {
   return {
     saveWorkflow,
     getWorkflows,
+    deleteWorkflow, // ✅ added
     loadWorkflow,
     getRuns,
   };
