@@ -27,6 +27,10 @@
 
 //   workflow   Workflow @relation(fields: [workflowId], references: [id])
 // }
+
+
+
+
 generator client {
   provider = "prisma-client-js"
 }
@@ -34,9 +38,32 @@ generator client {
 datasource db {
   provider = "postgresql"
 }
- 
+
+
 model User {
   id    String @id @default(cuid())
   email String @unique
   name  String?
+}
+
+
+model Workflow {
+  id        String        @id @default(cuid())
+  userId    String
+  name      String        @default("Untitled Workflow")
+  nodes     Json
+  edges     Json
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+
+  runs      WorkflowRun[]
+}
+
+model WorkflowRun {
+  id         String   @id @default(cuid())
+  workflowId String
+  status     String
+  createdAt  DateTime @default(now())
+
+  workflow   Workflow @relation(fields: [workflowId], references: [id])
 }

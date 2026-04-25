@@ -1,3 +1,5 @@
+
+
 "use client";
 
 import { create } from "zustand";
@@ -11,15 +13,29 @@ type FlowState = {
   nodes: Node[];
   edges: Edge[];
 
+  // ✅ WORKFLOW STATE
+  currentWorkflowId: string | null;
+  workflowName: string;
+
+  setCurrentWorkflowId: (id: string | null) => void;
+  setWorkflowName: (name: string) => void;
+
   past: FlowHistory[];
   future: FlowHistory[];
 
-  // 🔥 NEW (hover system)
   hoveredNodeId: string | null;
   setHoveredNode: (id: string | null) => void;
 
   setNodes: (nodes: Node[]) => void;
   setEdges: (edges: Edge[]) => void;
+
+  // ✅ LOAD WORKFLOW
+  setWorkflow: (
+    nodes: Node[],
+    edges: Edge[],
+    id?: string,
+    name?: string,
+  ) => void;
 
   undo: () => void;
   redo: () => void;
@@ -30,20 +46,22 @@ type FlowState = {
 export const useFlowStore = create<FlowState>((set, get) => ({
   nodes: [],
   edges: [],
+
+  // ✅ WORKFLOW STATE
+  currentWorkflowId: null,
+  workflowName: "Untitled Workflow",
+
+  setCurrentWorkflowId: (id) => set({ currentWorkflowId: id }),
+  setWorkflowName: (name) => set({ workflowName: name }),
+
   past: [],
   future: [],
 
-  // 🔥 NEW STATE
   hoveredNodeId: null,
-
   setHoveredNode: (id) => set({ hoveredNodeId: id }),
 
-  // ✅ Nodes update (NO history)
-  setNodes: (nodes) => {
-    set({ nodes });
-  },
+  setNodes: (nodes) => set({ nodes }),
 
-  // ✅ Edges update (WITH history)
   setEdges: (edges) => {
     const { edges: prevEdges, past } = get();
 
@@ -54,10 +72,20 @@ export const useFlowStore = create<FlowState>((set, get) => ({
     });
   },
 
-  // ✅ UNDO (edges only)
+  // ✅ LOAD WORKFLOW (CRITICAL)
+  setWorkflow: (nodes, edges, id, name) => {
+    set({
+      nodes,
+      edges,
+      currentWorkflowId: id || null,
+      workflowName: name || "Untitled Workflow",
+      past: [],
+      future: [],
+    });
+  },
+
   undo: () => {
     const { past, future, edges } = get();
-
     if (past.length === 0) return;
 
     const previous = past[past.length - 1];
@@ -69,10 +97,8 @@ export const useFlowStore = create<FlowState>((set, get) => ({
     });
   },
 
-  // ✅ REDO (edges only)
   redo: () => {
     const { future, past, edges } = get();
-
     if (future.length === 0) return;
 
     const next = future[0];
@@ -84,7 +110,6 @@ export const useFlowStore = create<FlowState>((set, get) => ({
     });
   },
 
-  // ✅ DELETE selected nodes + edges
   deleteSelected: () => {
     const { nodes, edges } = get();
 
