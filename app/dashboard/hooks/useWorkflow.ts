@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useFlowStore } from "./useFlowStore";
@@ -23,8 +24,13 @@ export function useWorkflow() {
   const { nodes, edges, setWorkflow, workflowId } = useFlowStore();
 
   // ─────────────────────────────────────────────────────────────
+  // 🔥 CLEAN NODES — strips UI-only fields before sending to DB
+  // ─────────────────────────────────────────────────────────────
+  const cleanNodes = (rawNodes: Node[]): Node[] =>
+    rawNodes.map(({ selected: _s, dragging: _d, ...rest }) => rest as Node);
+
+  // ─────────────────────────────────────────────────────────────
   // 🔥 UNIQUE NAME GUARD
-  // If "My Flow" already exists → returns "My Flow (2)", etc.
   // ─────────────────────────────────────────────────────────────
   const generateUniqueName = async (desiredName: string): Promise<string> => {
     const existing = await getWorkflows();
@@ -41,37 +47,61 @@ export function useWorkflow() {
 
   // ─────────────────────────────────────────────────────────────
   // ✅ SAVE
-  //   • workflowId present  → UPDATE existing record (auto-save path)
-  //   • no workflowId       → first manual Save → CREATE new record
-  //                           with a guaranteed-unique name
   // ─────────────────────────────────────────────────────────────
   const saveWorkflow = async (name: string) => {
-    // UPDATE path — already saved before, just patch it
+    const safeNodes = cleanNodes(nodes);
+
+    // UPDATE path
     if (workflowId) {
+      const payload = { id: workflowId, name, nodes: safeNodes, edges };
+
+      console.group(`🔄 AUTO-SAVE → UPDATE [${workflowId}]`);
+      console.log("📛 Name      :", name);
+      console.log("🟦 Nodes     :", safeNodes.length, safeNodes);
+      console.log("🔗 Edges     :", edges.length, edges);
+      console.log("📦 Full payload →", payload);
+      console.groupEnd();
+
       const res = await fetch("/api/workflow/save", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: workflowId, name, nodes, edges }),
+        body: JSON.stringify(payload),
       });
       const data = await res.json();
+
+      if (data.success) {
+        console.log(`✅ DB Updated: ${data.data?.id}`);
+      } else {
+        console.error("❌ Update failed:", data.error);
+      }
+
       return data.data;
     }
 
-    // CREATE path — very first save; ensure name is unique
+    // CREATE path — very first save
     const uniqueName = await generateUniqueName(name);
+    const payload = { name: uniqueName, nodes: safeNodes, edges };
+
+    console.group(`🆕 MANUAL SAVE → CREATE`);
+    console.log("📛 Name      :", uniqueName);
+    console.log("🟦 Nodes     :", safeNodes.length, safeNodes);
+    console.log("🔗 Edges     :", edges.length, edges);
+    console.log("📦 Full payload →", payload);
+    console.groupEnd();
 
     const res = await fetch("/api/workflow/save", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: uniqueName, nodes, edges }),
+      body: JSON.stringify(payload),
     });
     const data = await res.json();
 
-    // 🔥 After creation, write the real id + finalised name back into the store
-    // so every subsequent auto-save hits the UPDATE branch
     if (data.data?.id) {
+      console.log(`✅ DB Created: ${data.data.id} | Name: "${uniqueName}"`);
       setWorkflow(nodes, edges, data.data.id, uniqueName);
       localStorage.setItem("currentWorkflowId", data.data.id);
+    } else {
+      console.error("❌ Create failed:", data.error);
     }
 
     return data.data;
@@ -86,38 +116,55 @@ export function useWorkflow() {
 
   // ✅ DELETE
   const deleteWorkflow = async (id: string) => {
+    console.log(`🗑 DELETE workflow: ${id}`);
     const res = await fetch("/api/workflow/delete", {
       method: "DELETE",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ id }),
     });
     const data = await res.json();
+    if (data.success) {
+      console.log(`✅ DB Deleted: ${id}`);
+    } else {
+      console.error("❌ Delete failed:", data.error);
+    }
     return data.success;
   };
 
-  // ✅ LOAD — sets canvas + persists session
+  // ✅ LOAD
   const loadWorkflow = (workflow: Workflow) => {
+    console.group(`📂 LOAD workflow: "${workflow.name}" [${workflow.id}]`);
+    console.log("🟦 Nodes:", workflow.nodes.length);
+    console.log("🔗 Edges:", workflow.edges.length);
+    console.groupEnd();
     setWorkflow(workflow.nodes, workflow.edges, workflow.id, workflow.name);
     localStorage.setItem("currentWorkflowId", workflow.id);
   };
 
-  // 🔥 CLEAR — wipes canvas, resets topbar name, removes session
+  // 🔥 CLEAR
   const clearWorkflow = () => {
+    console.log("🧹 CLEAR — canvas wiped, session removed");
     setWorkflow([], [], "", "Untitled Workflow");
     localStorage.removeItem("currentWorkflowId");
   };
 
-  // 🔥 RESTORE — reloads last opened workflow after refresh / re-login
+  // 🔥 RESTORE
   const restoreLastWorkflow = async () => {
     const savedId = localStorage.getItem("currentWorkflowId");
-    if (!savedId) return;
+    if (!savedId) {
+      console.log("🔁 RESTORE — no saved session found");
+      return;
+    }
 
+    console.log(`🔁 RESTORE — looking for workflow: ${savedId}`);
     const workflows = await getWorkflows();
     const match = workflows.find((wf) => wf.id === savedId);
 
     if (match) {
+      console.log(`✅ RESTORE — found "${match.name}", loading...`);
       setWorkflow(match.nodes, match.edges, match.id, match.name);
     } else {
+      console.warn("⚠️ RESTORE — workflow not found in DB, clearing stale key");
       localStorage.removeItem("currentWorkflowId");
     }
   };
