@@ -14,7 +14,6 @@
     "@neondatabase/serverless": "^1.1.0",
     "@prisma/adapter-neon": "^7.8.0",
     "@prisma/client": "^7.8.0",
-    "@trigger.dev/nextjs": "^3.3.12",
     "@trigger.dev/sdk": "^3.3.17",
     "@uppy/core": "^5.2.0",
     "@uppy/react": "^5.2.0",
