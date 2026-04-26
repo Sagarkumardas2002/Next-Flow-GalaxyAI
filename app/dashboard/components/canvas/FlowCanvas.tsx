@@ -16,16 +16,14 @@ import "@xyflow/react/dist/style.css";
 import { useCallback, useEffect } from "react";
 import { useFlowStore } from "../../hooks/useFlowStore";
 import { nodeTypes } from "./nodes/nodeTypes";
-import AnimatedEdge from "./edges/AnimatedEdge"; // 🔥 NEW
+import AnimatedEdge from "./edges/AnimatedEdge";
 
 import type { Node, Connection, NodeChange, EdgeChange } from "@xyflow/react";
 
-// 🔥 NEW — edge types
 const edgeTypes = {
   default: AnimatedEdge,
 };
 
-// ✅ FIXED ID GENERATOR (NO DUPLICATES)
 const getId = () =>
   `node_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
 
@@ -52,7 +50,6 @@ export default function FlowCanvas() {
     return () => window.removeEventListener("keydown", handler);
   }, [deleteSelected, undo, redo]);
 
-  // ✅ Map sidebar types
   const mapType = (type: string) => {
     switch (type) {
       case "Text":
@@ -72,7 +69,6 @@ export default function FlowCanvas() {
     }
   };
 
-  // ✅ Drop node
   const onDrop = useCallback(
     (event: React.DragEvent) => {
       event.preventDefault();
@@ -93,13 +89,12 @@ export default function FlowCanvas() {
     [nodes, setNodes, screenToFlowPosition],
   );
 
-  // ✅ Connect — 🔥 removed inline style so AnimatedEdge handles styling
   const onConnect = (params: Connection) => {
     setEdges(
       addEdge(
         {
           ...params,
-          type: "default", // 🔥 uses AnimatedEdge
+          type: "default", // uses AnimatedEdge
         },
         edges,
       ),
@@ -112,7 +107,7 @@ export default function FlowCanvas() {
         nodes={nodes}
         edges={edges}
         nodeTypes={nodeTypes}
-        edgeTypes={edgeTypes} // 🔥 NEW
+        edgeTypes={edgeTypes}
         onNodesChange={(c: NodeChange[]) =>
           setNodes(applyNodeChanges(c, nodes))
         }

@@ -1,8 +1,7 @@
-
 "use client";
 
 import { useState } from "react";
-import { type NodeProps } from "@xyflow/react";
+import { type NodeProps, useEdges } from "@xyflow/react";
 import BaseNode from "./BaseNode";
 
 type LLMNodeData = {
@@ -11,9 +10,52 @@ type LLMNodeData = {
   status?: "idle" | "running" | "success" | "error";
 };
 
-export default function LLMNode({ data }: NodeProps) {
+const LLM_INPUT_HANDLES = ["system_prompt", "user_message", "images", "audio"];
+
+// 🔥 Moved OUTSIDE LLMNode — fixes "cannot create components during render"
+function HandleLabel({
+  handleId,
+  label,
+  connected,
+}: {
+  handleId: string;
+  label: string;
+  connected: boolean;
+}) {
+  return (
+    <div className="flex items-center gap-1 flex-1 min-w-0">
+      <span
+        className={`w-1.5 h-1.5 rounded-full flex-shrink-0 transition-colors duration-300 ${
+          connected
+            ? "bg-green-400 shadow-[0_0_4px_rgba(74,222,128,0.8)]"
+            : "bg-zinc-600"
+        }`}
+      />
+      <span
+        className={`text-[9px] truncate transition-colors duration-300 ${
+          connected ? "text-green-400" : "text-zinc-500"
+        }`}
+      >
+        {label}
+      </span>
+      {connected && (
+        <span className="text-[8px] text-green-500/70 ml-auto flex-shrink-0">
+          ✓
+        </span>
+      )}
+    </div>
+  );
+}
+
+export default function LLMNode({ id, data }: NodeProps) {
   const { output, model, status } = (data ?? {}) as LLMNodeData;
   const [copied, setCopied] = useState(false);
+
+  const allEdges = useEdges();
+  const incomingEdges = allEdges.filter((e) => e.target === id);
+
+  const isConnected = (handleId: string) =>
+    incomingEdges.some((e) => e.targetHandle === handleId);
 
   const handleCopy = async () => {
     if (!output) return;
@@ -37,37 +79,46 @@ export default function LLMNode({ data }: NodeProps) {
     <BaseNode
       title="Run LLM"
       icon="✦"
-      inputs={3}
+      inputHandles={LLM_INPUT_HANDLES}
       outputs={1}
       status={status ?? "idle"}
     >
       {/* Model selector */}
-      <select className="w-full bg-[#0f0f0f] border border-[#2a2a2a] rounded px-2 py-1 text-[10px] mb-2">
+      <select className="w-full bg-[#0f0f0f] border border-[#2a2a2a] rounded px-2 py-1 text-[10px] mb-3">
         <option>gemini-1.5-flash</option>
         <option>gemini-1.5-flash-8b</option>
         <option>gemini-2.0-flash</option>
         <option>gemini-2.5-flash</option>
       </select>
 
-      {/* Handle labels */}
-      <div className="flex flex-col gap-[3px] mb-2">
-        <div className="text-[9px]">
-          <span className="text-green-400">system_prompt</span>
-          <span className="text-zinc-600"> — Text Node (optional)</span>
+      {/* 🔥 Compact 2-per-row handle labels with live dots */}
+      <div className="flex flex-col gap-1.5 mb-2">
+        {/* Row 1 */}
+        <div className="flex items-center gap-2">
+          <HandleLabel
+            handleId="system_prompt"
+            label="system_prompt"
+            connected={isConnected("system_prompt")}
+          />
+          <HandleLabel
+            handleId="user_message"
+            label="user_message"
+            connected={isConnected("user_message")}
+          />
         </div>
-        <div className="text-[9px]">
-          <span className="text-green-400">user_message</span>
-          <span className="text-zinc-600"> — Text Node (required)</span>
+        {/* Row 2 */}
+        <div className="flex items-center gap-2">
+          <HandleLabel
+            handleId="images"
+            label="images"
+            connected={isConnected("images")}
+          />
+          <HandleLabel
+            handleId="audio"
+            label="audio"
+            connected={isConnected("audio")}
+          />
         </div>
-        <div className="text-[9px]">
-          <span className="text-green-400">images</span>
-          <span className="text-zinc-600"> — Image Node (optional)</span>
-        </div>
-      </div>
-
-      <div className="text-[9px] mb-2">
-        <span className="text-blue-400">output</span>
-        <span className="text-zinc-600"> — Text response from LLM</span>
       </div>
 
       <div className="border-t border-[#2a2a2a] my-2" />
@@ -92,14 +143,12 @@ export default function LLMNode({ data }: NodeProps) {
       {/* ── SUCCESS ── */}
       {status === "success" && output && (
         <>
-          {/* model badge */}
           {model && (
             <div className="text-[9px] text-purple-400/70 mb-1">🤖 {model}</div>
           )}
 
-          {/* 🔥 Output area with copy button in top-right */}
           <div className="relative mb-2">
-            {/* Copy button — top right corner */}
+            {/* Copy button */}
             <button
               onClick={handleCopy}
               title="Copy output"
@@ -119,29 +168,21 @@ export default function LLMNode({ data }: NodeProps) {
                   <span className="text-green-400">Copied!</span>
                 </>
               ) : (
-                <>
-                  <svg
-                    width="9"
-                    height="9"
-                    mx-2
-                    viewBox="0 0 12 12"
-                    fill="none"
-                  >
-                    <rect
-                      x="4"
-                      y="1"
-                      width="7"
-                      height="8"
-                      rx="1"
-                      stroke="currentColor"
-                      strokeWidth="1.2"
-                    />
-                    <path
-                      d="M1 4h2v6a1 1 0 001 1h5v1H3a2 2 0 01-2-2V4z"
-                      fill="currentColor"
-                    />
-                  </svg>
-                </>
+                <svg width="9" height="9" viewBox="0 0 12 12" fill="none">
+                  <rect
+                    x="4"
+                    y="1"
+                    width="7"
+                    height="8"
+                    rx="1"
+                    stroke="currentColor"
+                    strokeWidth="1.2"
+                  />
+                  <path
+                    d="M1 4h2v6a1 1 0 001 1h5v1H3a2 2 0 01-2-2V4z"
+                    fill="currentColor"
+                  />
+                </svg>
               )}
             </button>
 
@@ -159,7 +200,7 @@ export default function LLMNode({ data }: NodeProps) {
             </div>
           </div>
 
-          {/* Done + Export row */}
+          {/* Done + Export */}
           <div className="flex items-center gap-2">
             <div className="flex-1 border border-purple-500/30 bg-purple-500/10 text-purple-400 text-center py-1 rounded text-[10px]">
               ✓ Done

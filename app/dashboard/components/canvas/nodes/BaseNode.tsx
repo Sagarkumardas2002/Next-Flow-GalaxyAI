@@ -8,7 +8,7 @@ export default function BaseNode({
   children,
   status,
   data,
-  inputs = 0,
+  inputHandles = [],
   outputs = 1,
 }: {
   title: string;
@@ -16,7 +16,7 @@ export default function BaseNode({
   children?: React.ReactNode;
   status?: "idle" | "running" | "success" | "error" | "done";
   data?: { running?: boolean };
-  inputs?: number;
+  inputHandles?: string[];
   outputs?: number;
 }) {
   const isRunning = data?.running || status === "running";
@@ -33,13 +33,14 @@ export default function BaseNode({
     <div
       className={`
         w-[270px] rounded-xl text-[11px] text-zinc-300 shadow-md
-        transition-all duration-300 bg-[#1a1a1a] border
+        transition-all duration-500 bg-[#1a1a1a] border
         ${borderClass}
         ${isRunning ? "llm-node-running" : ""}
+        ${!isRunning && status === "success" ? "llm-node-success" : ""}
       `}
     >
       {/* HEADER */}
-      <div className="flex items-center gap-2 px-3 py-2 border-b border-[#2a2a2a]">
+      <div className="drag-handle flex items-center gap-2 px-3 py-2 border-b border-[#2a2a2a] cursor-grab active:cursor-grabbing">
         <div
           className={`w-5 h-5 flex items-center justify-center rounded bg-[#2a2a2a] text-[10px] ${
             isRunning ? "animate-pulse" : ""
@@ -47,7 +48,6 @@ export default function BaseNode({
         >
           {icon}
         </div>
-
         <span className="text-zinc-200">{title}</span>
 
         {isRunning && (
@@ -75,10 +75,11 @@ export default function BaseNode({
       {/* BODY */}
       <div className="p-3">{children}</div>
 
-      {/* INPUT HANDLES */}
-      {Array.from({ length: inputs }).map((_, i) => (
+      {/* NAMED INPUT HANDLES */}
+      {inputHandles.map((handleId, i) => (
         <Handle
-          key={`in-${i}`}
+          key={handleId}
+          id={handleId}
           type="target"
           position={Position.Left}
           style={{ top: `${30 + i * 20}%` }}
@@ -90,6 +91,7 @@ export default function BaseNode({
       {Array.from({ length: outputs }).map((_, i) => (
         <Handle
           key={`out-${i}`}
+          id={`output-${i}`}
           type="source"
           position={Position.Right}
           style={{ top: "50%" }}

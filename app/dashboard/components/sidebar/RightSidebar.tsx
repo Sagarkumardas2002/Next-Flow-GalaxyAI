@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useWorkflow } from "../../hooks/useWorkflow";
 import { useFlowStore } from "../../hooks/useFlowStore";
 import type { Node, Edge } from "@xyflow/react";
@@ -15,6 +15,17 @@ type Workflow = {
   userId: string;
 };
 
+type RunEntry = {
+  id: string;
+  workflowId: string | null;
+  workflowName: string;
+  status: "running" | "success" | "error";
+  startedAt: number;
+  duration: number | null;
+  nodeCount: number;
+  type: "full" | "selected";
+};
+
 export default function RightSidebar() {
   const {
     getWorkflows,
@@ -24,12 +35,27 @@ export default function RightSidebar() {
     restoreLastWorkflow,
   } = useWorkflow();
 
-  // 🔥 Track which workflow is currently open on the canvas
   const currentWorkflowId = useFlowStore((s) => s.workflowId);
+  const workflowName = useFlowStore((s) => s.workflowName);
+  const nodes = useFlowStore((s) => s.nodes);
 
   const [workflows, setWorkflows] = useState<Workflow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [runs, setRuns] = useState<RunEntry[]>([]);
+  const [activeTab, setActiveTab] = useState<"all" | "this">("all");
 
+  // 🔥 FIX: stable "now" that ticks every 30s — never call Date.now() during render
+  const [now, setNow] = useState<number>(0);
+  useEffect(() => {
+    setNow(Date.now());
+    const interval = setInterval(() => setNow(Date.now()), 30_000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const activeRunRef = useRef<{ id: string; startedAt: number } | null>(null);
+  const runCounterRef = useRef(0);
+
+  // ── WORKFLOW LIST FETCH ──
   useEffect(() => {
     let isMounted = true;
 
@@ -40,8 +66,6 @@ export default function RightSidebar() {
         setWorkflows(data || []);
         setLoading(false);
       }
-
-      // 🔥 After workflows load, restore the last opened workflow (refresh / re-login)
       await restoreLastWorkflow();
     };
 
@@ -61,40 +85,103 @@ export default function RightSidebar() {
     };
 
     window.addEventListener("workflow-saved", handleWorkflowSaved);
-
     return () => {
       isMounted = false;
       window.removeEventListener("workflow-saved", handleWorkflowSaved);
     };
   }, []);
 
-  // 🔥 DELETE — clears canvas + topbar name if the deleted workflow is currently open
+  // ── RUN HISTORY LISTENERS ──
+  useEffect(() => {
+    const handleRunStart = (e: Event) => {
+      const detail = (e as CustomEvent).detail as { edgeIds: string[] };
+      runCounterRef.current += 1;
+
+      const runId = `run-${runCounterRef.current}`;
+      const startedAt = Date.now(); // ✅ inside event handler, not render
+
+      const llmNodeCount = nodes.filter((n) => n.type === "llmNode").length;
+
+      const newRun: RunEntry = {
+        id: runId,
+        workflowId: currentWorkflowId,
+        workflowName: workflowName || "Untitled Workflow",
+        status: "running",
+        startedAt,
+        duration: null,
+        nodeCount: llmNodeCount,
+        type: detail?.edgeIds?.length ? "selected" : "full",
+      };
+
+      activeRunRef.current = { id: runId, startedAt };
+      setNow(Date.now()); // refresh "ago" timestamps when a run starts
+      setRuns((prev) => [newRun, ...prev]);
+    };
+
+    const handleRunEnd = () => {
+      if (!activeRunRef.current) return;
+      const { id, startedAt } = activeRunRef.current;
+      const duration = Date.now() - startedAt; // ✅ inside event handler
+      activeRunRef.current = null;
+
+      setNow(Date.now()); // refresh "ago" timestamps when a run ends
+      setRuns((prev) =>
+        prev.map((r) =>
+          r.id === id ? { ...r, status: "success" as const, duration } : r,
+        ),
+      );
+    };
+
+    window.addEventListener("workflow-run-start", handleRunStart);
+    window.addEventListener("workflow-run-end", handleRunEnd);
+    return () => {
+      window.removeEventListener("workflow-run-start", handleRunStart);
+      window.removeEventListener("workflow-run-end", handleRunEnd);
+    };
+  }, [currentWorkflowId, workflowName, nodes]);
+
+  // ── DELETE ──
   const handleDelete = async (id: string) => {
     const confirmDelete = confirm("Delete this workflow?");
     if (!confirmDelete) return;
-
     const success = await deleteWorkflow(id);
-
     if (success) {
       setWorkflows((prev) => prev.filter((wf) => wf.id !== id));
-
-      // 🔥 If the deleted workflow is the one open → wipe canvas & reset topbar
-      if (id === currentWorkflowId) {
-        clearWorkflow();
-      }
+      if (id === currentWorkflowId) clearWorkflow();
     } else {
       alert("Failed to delete");
     }
   };
+
+  // ── HELPERS — use stable `now` state, never Date.now() directly ──
+  const formatTime = (ms: number | null): string => {
+    if (ms === null) return "running…";
+    if (ms < 1000) return `${ms}ms`;
+    return `${(ms / 1000).toFixed(1)}s`;
+  };
+
+  const formatAgo = (ts: number): string => {
+    if (now === 0) return "just now";
+    const diff = Math.floor((now - ts) / 1000);
+    if (diff < 5) return "just now";
+    if (diff < 60) return `${diff}s ago`;
+    if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+    return `${Math.floor(diff / 3600)}h ago`;
+  };
+
+  const filteredRuns =
+    activeTab === "this"
+      ? runs.filter((r) => r.workflowId === currentWorkflowId)
+      : runs;
 
   const ITEM_HEIGHT = 36;
   const VISIBLE_COUNT = 6;
   const containerHeight = ITEM_HEIGHT * VISIBLE_COUNT;
 
   return (
-    <div className="w-[240px] min-w-[240px] bg-[#111] border-l border-[#222] flex flex-col">
+    <div className="w-[20px] min-w-[240px] bg-[#111] border-l border-[#222] flex flex-col">
       {/* ===================== */}
-      {/* 🔥 WORKFLOWS SECTION */}
+      {/* WORKFLOWS SECTION     */}
       {/* ===================== */}
       <div className="px-3 pt-4 pb-3 border-b border-[#222]">
         <h2 className="text-[13px] mb-5 font-semibold text-white text-center tracking-wide">
@@ -131,7 +218,6 @@ export default function RightSidebar() {
           className="overflow-y-auto space-y-1.5 pr-1"
           style={{ height: `${containerHeight}px` }}
         >
-          {/* ── LOADING SKELETONS ── */}
           {loading &&
             Array.from({ length: VISIBLE_COUNT }).map((_, i) => (
               <div
@@ -143,14 +229,12 @@ export default function RightSidebar() {
               </div>
             ))}
 
-          {/* ── EMPTY STATE ── */}
           {!loading && workflows.length === 0 && (
             <div className="flex items-center justify-center text-[10px] text-zinc-500 h-full">
               No workflows yet
             </div>
           )}
 
-          {/* ── WORKFLOW ITEMS ── */}
           {!loading &&
             workflows.map((wf) => (
               <div
@@ -165,8 +249,6 @@ export default function RightSidebar() {
                   }`}
               >
                 <span className="flex-1 truncate">{wf.name}</span>
-
-                {/* DELETE BUTTON */}
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
@@ -182,72 +264,104 @@ export default function RightSidebar() {
       </div>
 
       {/* ===================== */}
-      {/* 🔥 HISTORY SECTION */}
+      {/* HISTORY SECTION       */}
       {/* ===================== */}
 
       <div className="mt-3" />
 
-      {/* HEADER */}
       <div className="h-12 flex items-center justify-between px-3 border-b border-[#222]">
         <span className="text-[11px] font-medium text-zinc-300">History</span>
         <span className="text-[9px] px-2 py-[2px] bg-[#222] rounded text-zinc-500">
-          3 runs
+          {filteredRuns.length} {filteredRuns.length === 1 ? "run" : "runs"}
         </span>
       </div>
 
-      {/* TABS */}
       <div className="flex gap-1 p-2 border-b border-[#222]">
-        <button className="text-[10px] px-2 py-1 rounded bg-purple-500/10 text-purple-400">
+        <button
+          onClick={() => setActiveTab("all")}
+          className={`text-[10px] px-2 py-1 rounded transition ${
+            activeTab === "all"
+              ? "bg-purple-500/10 text-purple-400"
+              : "text-zinc-500 hover:text-zinc-300"
+          }`}
+        >
           All Runs
         </button>
-        <button className="text-[10px] px-2 py-1 rounded text-zinc-500 hover:text-zinc-300">
+        <button
+          onClick={() => setActiveTab("this")}
+          className={`text-[10px] px-2 py-1 rounded transition ${
+            activeTab === "this"
+              ? "bg-purple-500/10 text-purple-400"
+              : "text-zinc-500 hover:text-zinc-300"
+          }`}
+        >
           This Workflow
         </button>
       </div>
 
-      {/* BODY */}
       <div className="flex-1 p-2 overflow-y-auto">
-        {/* RUN #3 */}
-        <div className="mb-3 p-2 rounded-md bg-[#1a1a1a] border border-[#333]">
-          <div className="flex items-center gap-2 mb-1">
-            <div className="w-[7px] h-[7px] rounded-full bg-yellow-400 animate-pulse" />
-            <span className="text-[10px] text-zinc-200 flex-1">Run #3</span>
-            <span className="text-[9px] px-1.5 py-[1px] bg-[#222] rounded text-zinc-500">
-              Full
-            </span>
+        {filteredRuns.length === 0 && (
+          <div className="flex flex-col items-center justify-center h-24 gap-1">
+            <span className="text-[10px] text-zinc-600">No runs yet</span>
+            <span className="text-[9px] text-zinc-700">Press Run to start</span>
           </div>
-          <div className="text-[10px] text-zinc-500 mb-2">
-            Just now · running…
-          </div>
-        </div>
+        )}
 
-        {/* RUN #2 */}
-        <div className="mb-3 p-2 rounded-md bg-[#1a1a1a] border border-[#2a2a2a]">
-          <div className="flex items-center gap-2 mb-1">
-            <div className="w-[7px] h-[7px] rounded-full bg-green-500" />
-            <span className="text-[10px] text-zinc-200 flex-1">Run #2</span>
-            <span className="text-[9px] px-1.5 py-[1px] bg-[#222] rounded text-zinc-500">
-              Partial
-            </span>
-          </div>
-          <div className="text-[10px] text-zinc-500">
-            2 min ago · 4.2s · 2 nodes
-          </div>
-        </div>
+        {filteredRuns.map((run, index) => {
+          const runNumber = filteredRuns.length - index;
+          const dotColor =
+            run.status === "running"
+              ? "bg-yellow-400 animate-pulse"
+              : run.status === "success"
+                ? "bg-green-500"
+                : "bg-red-500";
 
-        {/* RUN #1 */}
-        <div className="p-2 rounded-md bg-[#1a1a1a] border border-[#2a2a2a]">
-          <div className="flex items-center gap-2 mb-1">
-            <div className="w-[7px] h-[7px] rounded-full bg-red-500" />
-            <span className="text-[10px] text-zinc-200 flex-1">Run #1</span>
-            <span className="text-[9px] px-1.5 py-[1px] bg-[#222] rounded text-zinc-500">
-              Full
-            </span>
-          </div>
-          <div className="text-[10px] text-zinc-500">
-            8 min ago · failed · 1.1s
-          </div>
-        </div>
+          return (
+            <div
+              key={run.id}
+              className={`mb-2 p-2 rounded-md bg-[#1a1a1a] border ${
+                run.status === "running" ? "border-[#333]" : "border-[#2a2a2a]"
+              }`}
+            >
+              <div className="flex items-center gap-2 mb-1">
+                <div
+                  className={`w-[7px] h-[7px] rounded-full flex-shrink-0 ${dotColor}`}
+                />
+                <span className="text-[10px] text-zinc-200 flex-1 truncate">
+                  Run #{runNumber}
+                  {run.workflowName && (
+                    <span className="text-zinc-500 ml-1">
+                      · {run.workflowName}
+                    </span>
+                  )}
+                </span>
+                <span className="text-[9px] px-1.5 py-[1px] bg-[#222] rounded text-zinc-500 flex-shrink-0">
+                  {run.type === "full" ? "Full" : "Selected"}
+                </span>
+              </div>
+
+              <div className="text-[9px] text-zinc-500 flex gap-1 flex-wrap">
+                <span>{formatAgo(run.startedAt)}</span>
+                <span>·</span>
+                <span>{formatTime(run.duration)}</span>
+                {run.nodeCount > 0 && (
+                  <>
+                    <span>·</span>
+                    <span>
+                      {run.nodeCount} {run.nodeCount === 1 ? "node" : "nodes"}
+                    </span>
+                  </>
+                )}
+                {run.status === "error" && (
+                  <>
+                    <span>·</span>
+                    <span className="text-red-400">failed</span>
+                  </>
+                )}
+              </div>
+            </div>
+          );
+        })}
       </div>
     </div>
   );

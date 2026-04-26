@@ -50,20 +50,29 @@
 
 
 
-/* Lightning edge animation */
-@keyframes edge-dash {
-  from { stroke-dashoffset: 20; }
-  to { stroke-dashoffset: 0; }
-}
-.edge-lightning {
-  animation: edge-dash 0.4s linear infinite;
+@keyframes llm-glow {
+  0%   { box-shadow: 0 0 8px rgba(168,85,247,0.5), 0 0 16px rgba(168,85,247,0.3); }
+  50%  { box-shadow: 0 0 24px rgba(168,85,247,1),  0 0 48px rgba(168,85,247,0.6); }
+  100% { box-shadow: 0 0 8px rgba(168,85,247,0.5), 0 0 16px rgba(168,85,247,0.3); }
 }
 
-/* LLM node living glow when running */
-@keyframes llm-glow {
-  0%, 100% { box-shadow: 0 0 8px rgba(168,85,247,0.5), 0 0 16px rgba(168,85,247,0.3); }
-  50%       { box-shadow: 0 0 24px rgba(168,85,247,1),  0 0 48px rgba(168,85,247,0.6); }
-}
+/* 🔥 Only pulses while running — stops when class is removed */
 .llm-node-running {
   animation: llm-glow 1.2s ease-in-out infinite;
+}
+
+/* 🔥 Success — static soft glow, no animation */
+.llm-node-success {
+  box-shadow: 0 0 10px rgba(168,85,247,0.3);
+  transition: box-shadow 0.5s ease;
+}
+
+/* Remove ReactFlow's hardcoded MiniMap inner spacing */
+.react-flow__minimap {
+  margin-right: 12px !important;
+ 
+}
+
+.react-flow__minimap svg {
+  display: block; /* removes inline bottom gap */
 }
