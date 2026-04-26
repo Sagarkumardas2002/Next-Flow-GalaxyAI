@@ -16,88 +16,136 @@ export default function Topbar({ displayName }: { displayName: string }) {
     edges,
     workflowName,
     setWorkflowName,
-    workflowId, // "" means unsaved new workflow → auto-save is OFF
-    setWorkflow, // used by New button to wipe everything including workflowId
+    workflowId,
+    setWorkflow,
+    updateNodeData,
   } = useFlowStore();
 
   const { saveWorkflow } = useWorkflow();
   const [isEditing, setIsEditing] = useState(false);
   const [autoSaveStatus, setAutoSaveStatus] = useState<AutoSaveStatus>("idle");
+  const [runningNodeId, setRunningNodeId] = useState<string | null>(null);
 
   const isFirstRender = useRef(true);
   const prevWorkflowIdRef = useRef<string>("");
 
-  // ─────────────────────────────────────────────────────────────
-  // 🔥 AUTO-SAVE — debounced 1.5 s
-  //   ONLY fires when workflowId is non-empty (i.e. already saved once manually).
-  //   New workflows with workflowId="" are completely ignored here.
-  // ─────────────────────────────────────────────────────────────
+  // ── AUTO-SAVE ──
   useEffect(() => {
-    // Skip first mount
     if (isFirstRender.current) {
       isFirstRender.current = false;
       prevWorkflowIdRef.current = workflowId ?? "";
       return;
     }
-
-    // 🚫 No id = new unsaved workflow → do NOT auto-save
     if (!workflowId) return;
-
-    // Skip on workflow switch (id changed externally)
     if (prevWorkflowIdRef.current !== workflowId) {
       prevWorkflowIdRef.current = workflowId;
       return;
     }
-
     setAutoSaveStatus("saving");
-
     const timer = setTimeout(async () => {
       try {
         const res = await saveWorkflow(workflowName);
-        if (res?.id) {
+        if (res?.id)
           window.dispatchEvent(
             new CustomEvent("workflow-saved", { detail: res }),
           );
-        }
         setAutoSaveStatus("saved");
       } catch {
         setAutoSaveStatus("idle");
       }
       setTimeout(() => setAutoSaveStatus("idle"), 2000);
     }, 1500);
-
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [nodes, edges, workflowName]);
 
-  // ─────────────────────────────────────────────────────────────
+  // ── HELPER: get prompt — returns null if not connected ──
+  const getPromptForNode = (llmNodeId: string): string | null => {
+    const connectedEdge = edges.find((e) => e.target === llmNodeId);
+    if (!connectedEdge) return null;
 
-  // 🔥 NEW — wipes canvas AND clears workflowId so auto-save stays off
+    const sourceNode = nodes.find((n) => n.id === connectedEdge.source);
+    if (!sourceNode) return null;
+
+    const text = (sourceNode?.data as { text?: string })?.text;
+    if (!text || text.trim() === "") return null;
+
+    return text;
+  };
+
+  // ── HELPER: get edge IDs connected to a node ──
+  const getConnectedEdgeIds = (nodeId: string): string[] =>
+    edges
+      .filter((e) => e.target === nodeId || e.source === nodeId)
+      .map((e) => e.id);
+
+  // ── HELPER: run a single LLM node ──
+  const runLLMNode = async (llmNode: (typeof nodes)[0]): Promise<boolean> => {
+    const prompt = getPromptForNode(llmNode.id);
+
+    // 🔥 Block if not connected or empty text
+    if (!prompt) {
+      updateNodeData(llmNode.id, {
+        status: "error",
+        output:
+          "⚠️ No prompt found. Please connect a Text Node to this LLM Node first.",
+      });
+      return false;
+    }
+
+    const edgeIds = getConnectedEdgeIds(llmNode.id);
+
+    console.log(`🚀 Running: ${llmNode.id} | Prompt: ${prompt}`);
+
+    // ⚡ Lightning on edges
+    window.dispatchEvent(
+      new CustomEvent("workflow-run-start", { detail: { edgeIds } }),
+    );
+
+    updateNodeData(llmNode.id, { status: "running", output: "" });
+
+    const res = await fetch("/api/run-llm", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ workflowId, nodeId: llmNode.id, prompt }),
+    });
+
+    const data = await res.json();
+    console.log(`✅ Node ${llmNode.id} done:`, data);
+
+    if (data.success) {
+      updateNodeData(llmNode.id, {
+        output: data.output,
+        model: data.model,
+        status: "success",
+      });
+    } else {
+      updateNodeData(llmNode.id, {
+        output: `❌ Error: ${data.error}`,
+        status: "error",
+      });
+    }
+    return true;
+  };
+
   const handleNewWorkflow = () => {
-    setWorkflow([], [], "", "Untitled Workflow"); // ← id = "" → auto-save blocked
+    setWorkflow([], [], "", "Untitled Workflow");
     setAutoSaveStatus("idle");
     prevWorkflowIdRef.current = "";
   };
 
-  // 🔥 SAVE — first manual save creates the record + arms auto-save going forward
   const handleSave = async () => {
     if (nodes.length === 0) {
       alert("Add at least one node before saving.");
       return;
     }
-
     try {
-      // saveWorkflow in useWorkflow handles: unique name + create vs update
       const res = await saveWorkflow(workflowName);
-
       if (res?.id) {
-        // After first save the store now has the real id — arm auto-save
         prevWorkflowIdRef.current = res.id;
-
         window.dispatchEvent(
           new CustomEvent("workflow-saved", { detail: res }),
         );
-
         setAutoSaveStatus("saved");
         setTimeout(() => setAutoSaveStatus("idle"), 2000);
       }
@@ -120,16 +168,70 @@ export default function Topbar({ displayName }: { displayName: string }) {
     URL.revokeObjectURL(url);
   };
 
-  const handleRunSelected = () => {
-    // TODO: wire up run-selected logic
+  // ── RUN SELECTED ──
+  const handleRunSelected = async () => {
+    try {
+      const selectedNode = nodes.find((n) => n.selected);
+      if (!selectedNode) {
+        alert("⚠️ Please select a node first");
+        return;
+      }
+
+      let llmNodesToRun: typeof nodes = [];
+
+      if (selectedNode.type === "llmNode") {
+        llmNodesToRun = [selectedNode];
+      } else {
+        const connectedTargetIds = edges
+          .filter((e) => e.source === selectedNode.id)
+          .map((e) => e.target);
+        llmNodesToRun = nodes.filter(
+          (n) => connectedTargetIds.includes(n.id) && n.type === "llmNode",
+        );
+        if (!llmNodesToRun.length) {
+          alert(
+            "⚠️ No LLM node connected. Draw an edge from your Text Node to an LLM Node first.",
+          );
+          return;
+        }
+      }
+
+      setRunningNodeId(llmNodesToRun[0].id);
+
+      for (const llmNode of llmNodesToRun) {
+        await runLLMNode(llmNode);
+      }
+    } catch (err) {
+      console.error("❌ Run Selected Error:", err);
+    } finally {
+      window.dispatchEvent(new CustomEvent("workflow-run-end", {}));
+      setRunningNodeId(null);
+    }
   };
 
-  const handleRunAll = () => {
-    // TODO: wire up run-all logic
+  // ── RUN ALL ──
+  const handleRunAll = async () => {
+    try {
+      const llmNodes = nodes.filter((n) => n.type === "llmNode");
+      if (!llmNodes.length) {
+        alert("⚠️ No LLM nodes found in the workflow");
+        return;
+      }
+      setRunningNodeId(llmNodes[0].id);
+      for (const llmNode of llmNodes) {
+        await runLLMNode(llmNode);
+      }
+    } catch (err) {
+      console.error("❌ Run All Error:", err);
+    } finally {
+      window.dispatchEvent(new CustomEvent("workflow-run-end", {}));
+      setRunningNodeId(null);
+    }
   };
 
   const iconBtn =
     "flex items-center gap-1.5 p-2 rounded-md bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-zinc-300 hover:text-white transition text-sm cursor-pointer";
+  const isRunning = runningNodeId !== null;
 
   return (
     <div className="h-14 bg-zinc-950 border-b border-zinc-800 flex items-center px-4 justify-between z-10">
@@ -153,7 +255,7 @@ export default function Topbar({ displayName }: { displayName: string }) {
         </button>
       </div>
 
-      {/* CENTER — workflow name + auto-save badge */}
+      {/* CENTER */}
       <div className="flex items-center gap-2">
         {!isEditing ? (
           <h2
@@ -174,8 +276,6 @@ export default function Topbar({ displayName }: { displayName: string }) {
             className="bg-zinc-900 text-white font-semibold text-lg px-2 py-1 rounded outline-none border border-zinc-700"
           />
         )}
-
-        {/* 🔥 Auto-save status — only visible when a workflow is armed */}
         {autoSaveStatus === "saving" && (
           <span className="flex items-center gap-1 text-[10px] text-zinc-400">
             <span className="w-1.5 h-1.5 rounded-full bg-yellow-400 animate-pulse" />
@@ -188,10 +288,14 @@ export default function Topbar({ displayName }: { displayName: string }) {
             Saved
           </span>
         )}
-
-        {/* Unsaved indicator for new workflows */}
         {!workflowId && nodes.length > 0 && autoSaveStatus === "idle" && (
           <span className="text-[10px] text-zinc-500 italic">unsaved</span>
+        )}
+        {isRunning && (
+          <span className="flex items-center gap-1 text-[10px] text-purple-400">
+            <span className="w-1.5 h-1.5 rounded-full bg-purple-400 animate-pulse" />
+            Running…
+          </span>
         )}
       </div>
 
@@ -204,30 +308,25 @@ export default function Topbar({ displayName }: { displayName: string }) {
           <Save size={14} />
           Save
         </button>
-
-        {/* ── Run Selected ── subtle purple */}
         <button
           onClick={handleRunSelected}
-          className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-md text-white text-sm font-normal transition cursor-pointer"
+          disabled={isRunning}
+          className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-md text-white text-sm font-normal transition cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
           style={{
-            background: "rgba(109, 40, 217, 0.15)",
+            background: "rgba(109,40,217,0.15)",
             border: "1px solid #6d28d9",
           }}
         >
           <svg width="9" height="11" viewBox="0 0 10 12" fill="none">
             <polygon points="0,0 10,6 0,12" fill="white" />
           </svg>
-          Run Selected
+          {isRunning ? "Running…" : "Run Selected"}
         </button>
-
-        {/* ── Run All ── solid purple + double play */}
         <button
           onClick={handleRunAll}
-          className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-md text-white text-sm font-normal transition cursor-pointer"
-          style={{
-            background: "#6d28d9",
-            border: "1px solid #6d28d9",
-          }}
+          disabled={isRunning}
+          className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-md text-white text-sm font-normal transition cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+          style={{ background: "#6d28d9", border: "1px solid #6d28d9" }}
         >
           <span className="flex gap-0.5">
             <svg width="9" height="11" viewBox="0 0 10 12" fill="none">
@@ -237,9 +336,8 @@ export default function Topbar({ displayName }: { displayName: string }) {
               <polygon points="0,0 10,6 0,12" fill="white" />
             </svg>
           </span>
-          Run All
+          {isRunning ? "Running…" : "Run All"}
         </button>
-
         <span className="text-sm text-zinc-400 hidden sm:block">
           {displayName.includes("@") ? "User" : displayName}
         </span>

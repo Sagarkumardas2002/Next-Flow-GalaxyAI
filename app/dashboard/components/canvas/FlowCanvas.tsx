@@ -1,5 +1,3 @@
-
-
 "use client";
 
 import {
@@ -18,8 +16,14 @@ import "@xyflow/react/dist/style.css";
 import { useCallback, useEffect } from "react";
 import { useFlowStore } from "../../hooks/useFlowStore";
 import { nodeTypes } from "./nodes/nodeTypes";
+import AnimatedEdge from "./edges/AnimatedEdge"; // 🔥 NEW
 
 import type { Node, Connection, NodeChange, EdgeChange } from "@xyflow/react";
+
+// 🔥 NEW — edge types
+const edgeTypes = {
+  default: AnimatedEdge,
+};
 
 // ✅ FIXED ID GENERATOR (NO DUPLICATES)
 const getId = () =>
@@ -34,21 +38,16 @@ export default function FlowCanvas() {
   // ✅ Keyboard shortcuts
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      if (e.key === "Delete" || e.key === "Backspace") {
-        deleteSelected();
-      }
-
+      if (e.key === "Delete" || e.key === "Backspace") deleteSelected();
       if (e.ctrlKey && e.key === "z") {
         e.preventDefault();
         undo();
       }
-
       if (e.ctrlKey && e.key === "y") {
         e.preventDefault();
         redo();
       }
     };
-
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
   }, [deleteSelected, undo, redo]);
@@ -73,43 +72,34 @@ export default function FlowCanvas() {
     }
   };
 
-  // ✅ Drop node (correct position)
+  // ✅ Drop node
   const onDrop = useCallback(
     (event: React.DragEvent) => {
       event.preventDefault();
-
       const type = event.dataTransfer.getData("nodeType");
       if (!type) return;
-
       const position = screenToFlowPosition({
         x: event.clientX,
         y: event.clientY,
       });
-
       const newNode: Node = {
-        id: getId(), // 🔥 FIX HERE
+        id: getId(),
         type: mapType(type),
         position,
         data: {},
       };
-
       setNodes([...nodes, newNode]);
     },
     [nodes, setNodes, screenToFlowPosition],
   );
 
-  // ✅ Connect (WITH history)
+  // ✅ Connect — 🔥 removed inline style so AnimatedEdge handles styling
   const onConnect = (params: Connection) => {
     setEdges(
       addEdge(
         {
           ...params,
-          animated: true,
-          style: {
-            stroke: "#7c3aed",
-            strokeWidth: 1.5,
-            strokeDasharray: "5 4",
-          },
+          type: "default", // 🔥 uses AnimatedEdge
         },
         edges,
       ),
@@ -122,6 +112,7 @@ export default function FlowCanvas() {
         nodes={nodes}
         edges={edges}
         nodeTypes={nodeTypes}
+        edgeTypes={edgeTypes} // 🔥 NEW
         onNodesChange={(c: NodeChange[]) =>
           setNodes(applyNodeChanges(c, nodes))
         }
@@ -147,7 +138,7 @@ export default function FlowCanvas() {
             borderRadius: "4px",
             padding: "8px",
             overflow: "hidden",
-            cursor: "pointer", // 👈 this clips the inner SVG to the rounded corners
+            cursor: "pointer",
             boxShadow:
               "0 4px 15px rgba(0,0,0,0.35), inset 0 0 0 1px rgba(255,255,255,0.05)",
           }}
@@ -155,18 +146,18 @@ export default function FlowCanvas() {
           nodeColor={(n) => {
             switch (n.type) {
               case "videoNode":
-                return "#2dd4bf"; // bright teal
+                return "#2dd4bf";
               case "imageNode":
-                return "#f59e0b"; // bright amber
+                return "#f59e0b";
               case "extractNode":
-                return "#22c55e"; // bright green
+                return "#22c55e";
               case "cropNode":
-                return "#f43f5e"; // bright rose
+                return "#f43f5e";
               case "llmNode":
-                return "#a855f7"; // bright purple
+                return "#a855f7";
               case "textNode":
               default:
-                return "#94a3b8"; // slate
+                return "#94a3b8";
             }
           }}
           maskColor="rgba(148, 163, 184, 0.8)"

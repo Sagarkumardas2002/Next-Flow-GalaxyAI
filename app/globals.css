@@ -47,3 +47,23 @@
 
 /* Animated edge dash */
 @keyframes dash { to { stroke-dashoffset: -18; } }
+
+
+
+/* Lightning edge animation */
+@keyframes edge-dash {
+  from { stroke-dashoffset: 20; }
+  to { stroke-dashoffset: 0; }
+}
+.edge-lightning {
+  animation: edge-dash 0.4s linear infinite;
+}
+
+/* LLM node living glow when running */
+@keyframes llm-glow {
+  0%, 100% { box-shadow: 0 0 8px rgba(168,85,247,0.5), 0 0 16px rgba(168,85,247,0.3); }
+  50%       { box-shadow: 0 0 24px rgba(168,85,247,1),  0 0 48px rgba(168,85,247,0.6); }
+}
+.llm-node-running {
+  animation: llm-glow 1.2s ease-in-out infinite;
+}
