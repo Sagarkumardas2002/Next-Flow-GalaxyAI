@@ -44,10 +44,9 @@ export default function RightSidebar() {
   const [runs, setRuns] = useState<RunEntry[]>([]);
   const [activeTab, setActiveTab] = useState<"all" | "this">("all");
 
-  // 🔥 FIX: stable "now" that ticks every 30s — never call Date.now() during render
-  const [now, setNow] = useState<number>(0);
+  // ✅ FIX: lazy initializer so Date.now() runs once on mount, no sync setState in effect
+  const [now, setNow] = useState<number>(() => Date.now());
   useEffect(() => {
-    setNow(Date.now());
     const interval = setInterval(() => setNow(Date.now()), 30_000);
     return () => clearInterval(interval);
   }, []);
@@ -98,7 +97,7 @@ export default function RightSidebar() {
       runCounterRef.current += 1;
 
       const runId = `run-${runCounterRef.current}`;
-      const startedAt = Date.now(); // ✅ inside event handler, not render
+      const startedAt = Date.now();
 
       const llmNodeCount = nodes.filter((n) => n.type === "llmNode").length;
 
@@ -114,17 +113,17 @@ export default function RightSidebar() {
       };
 
       activeRunRef.current = { id: runId, startedAt };
-      setNow(Date.now()); // refresh "ago" timestamps when a run starts
+      setNow(Date.now());
       setRuns((prev) => [newRun, ...prev]);
     };
 
     const handleRunEnd = () => {
       if (!activeRunRef.current) return;
       const { id, startedAt } = activeRunRef.current;
-      const duration = Date.now() - startedAt; // ✅ inside event handler
+      const duration = Date.now() - startedAt;
       activeRunRef.current = null;
 
-      setNow(Date.now()); // refresh "ago" timestamps when a run ends
+      setNow(Date.now());
       setRuns((prev) =>
         prev.map((r) =>
           r.id === id ? { ...r, status: "success" as const, duration } : r,
@@ -153,7 +152,6 @@ export default function RightSidebar() {
     }
   };
 
-  // ── HELPERS — use stable `now` state, never Date.now() directly ──
   const formatTime = (ms: number | null): string => {
     if (ms === null) return "running…";
     if (ms < 1000) return `${ms}ms`;
@@ -179,7 +177,7 @@ export default function RightSidebar() {
   const containerHeight = ITEM_HEIGHT * VISIBLE_COUNT;
 
   return (
-    <div className="w-[20px] min-w-[240px] bg-[#111] border-l border-[#222] flex flex-col">
+    <div className="w-[240px] min-w-[240px] bg-[#111] border-l border-[#222] flex flex-col">
       {/* ===================== */}
       {/* WORKFLOWS SECTION     */}
       {/* ===================== */}

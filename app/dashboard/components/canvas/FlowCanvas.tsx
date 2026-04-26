@@ -119,6 +119,7 @@ export default function FlowCanvas() {
         onConnect={onConnect}
         deleteKeyCode={null}
         fitView
+        proOptions={{ hideAttribution: true }}
       >
         <Background />
         <Controls />
