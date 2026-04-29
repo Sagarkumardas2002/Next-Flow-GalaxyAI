@@ -45,10 +45,27 @@
 ::-webkit-scrollbar-track { background: var(--bg-secondary); }
 ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
 
-/* Animated edge dash */
+/* ─── Edge animations ─── */
+
+/* Legacy dash (kept for compatibility) */
 @keyframes dash { to { stroke-dashoffset: -18; } }
 
+/*
+ * Flowing edge — source → destination.
+ * Negative dashoffset advances the dash window forward along the SVG path,
+ * so bright segments travel from source node to destination node.
+ * Total dasharray in AnimatedEdge = 8 (dash) + 18 (gap) = 26.
+ */
+@keyframes edge-flow {
+  from { stroke-dashoffset: 0; }
+  to   { stroke-dashoffset: -26; }
+}
 
+.edge-flow {
+  animation: edge-flow 0.65s linear infinite;
+}
+
+/* ─── LLM node states ─── */
 
 @keyframes llm-glow {
   0%   { box-shadow: 0 0 8px rgba(168,85,247,0.5), 0 0 16px rgba(168,85,247,0.3); }
@@ -56,21 +73,21 @@
   100% { box-shadow: 0 0 8px rgba(168,85,247,0.5), 0 0 16px rgba(168,85,247,0.3); }
 }
 
-/* 🔥 Only pulses while running — stops when class is removed */
+/* Only pulses while running — stops when class is removed */
 .llm-node-running {
   animation: llm-glow 1.2s ease-in-out infinite;
 }
 
-/* 🔥 Success — static soft glow, no animation */
+/* Success — static soft glow, no animation */
 .llm-node-success {
   box-shadow: 0 0 10px rgba(168,85,247,0.3);
   transition: box-shadow 0.5s ease;
 }
 
-/* Remove ReactFlow's hardcoded MiniMap inner spacing */
+/* ─── MiniMap ─── */
+
 .react-flow__minimap {
   margin-right: 12px !important;
- 
 }
 
 .react-flow__minimap svg {

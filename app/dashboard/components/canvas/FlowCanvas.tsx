@@ -1,3 +1,5 @@
+
+
 "use client";
 
 import {
@@ -13,7 +15,7 @@ import {
 
 import "@xyflow/react/dist/style.css";
 
-import { useCallback, useEffect } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useFlowStore } from "../../hooks/useFlowStore";
 import { nodeTypes } from "./nodes/nodeTypes";
 import AnimatedEdge from "./edges/AnimatedEdge";
@@ -32,8 +34,13 @@ export default function FlowCanvas() {
     useFlowStore();
 
   const { screenToFlowPosition } = useReactFlow();
+  const [loading, setLoading] = useState(true);
 
-  // ✅ Keyboard shortcuts
+  useEffect(() => {
+    const t = setTimeout(() => setLoading(false), 900);
+    return () => clearTimeout(t);
+  }, []);
+
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (e.key === "Delete" || e.key === "Backspace") deleteSelected();
@@ -94,12 +101,75 @@ export default function FlowCanvas() {
       addEdge(
         {
           ...params,
-          type: "default", // uses AnimatedEdge
+          type: "default",
         },
         edges,
       ),
     );
   };
+
+  if (loading) {
+    return (
+      <div className="w-full h-full bg-[#111111] relative overflow-hidden">
+        <style>{`
+        @keyframes canvas-sweep {
+          0%   { transform: translateX(-200%); }
+          100% { transform: translateX(200%); }
+        }
+        .canvas-skeleton {
+          position: absolute;
+          inset: 0;
+          overflow: hidden;
+          background: #161616;
+        }
+        .canvas-skeleton::after {
+          content: '';
+          position: absolute;
+          inset: 0;
+          background: linear-gradient(
+            90deg,
+            transparent 20%,
+            rgba(255,255,255,0.18) 50%,
+            transparent 80%
+          );
+          animation: canvas-sweep 4s ease-in-out infinite;
+        }
+      `}</style>
+
+        <div className="canvas-skeleton" />
+
+        {/* Dot grid */}
+        <svg className="absolute inset-0 w-full h-full opacity-[0.12] pointer-events-none">
+          <defs>
+            <pattern
+              id="sk-dots"
+              x="0"
+              y="0"
+              width="24"
+              height="24"
+              patternUnits="userSpaceOnUse"
+            >
+              <circle cx="1" cy="1" r="1" fill="#ffffff" />
+            </pattern>
+          </defs>
+          <rect width="100%" height="100%" fill="url(#sk-dots)" />
+        </svg>
+
+        {/* Fake controls bottom-left */}
+        <div className="absolute bottom-6 left-6 flex flex-col gap-2">
+          {[0, 1, 2].map((i) => (
+            <div
+              key={i}
+              className="w-8 h-8 rounded-md bg-[#1e1e1e] border border-[#2a2a2a]"
+            />
+          ))}
+        </div>
+
+        {/* Fake minimap bottom-right */}
+        <div className="absolute bottom-6 right-6 w-32 h-20 rounded-md bg-[#1e1e1e] border border-[#2a2a2a]" />
+      </div>
+    );
+  }
 
   return (
     <div className="w-full h-full">

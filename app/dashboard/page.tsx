@@ -27,8 +27,8 @@ export default async function DashboardPage() {
         <Topbar displayName={displayName} />
 
         {/* <div className="p-2">
-          <TestSaveButton />
-        </div> */}
+            <TestSaveButton />
+          </div> */}
 
         {/* CANVAS */}
         <div className="flex-1">

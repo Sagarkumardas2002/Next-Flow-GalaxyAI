@@ -1,69 +1,72 @@
-// // prisma/schema.prisma
+  // // prisma/schema.prisma
 
-// generator client {
-//   provider = "prisma-client-js"
-// }
+  // generator client {
+  //   provider = "prisma-client-js"
+  // }
 
-// datasource db {
-//   provider = "postgresql"
-// }
+  // datasource db {
+  //   provider = "postgresql"
+  // }
 
-// model Workflow {
-//   id        String        @id @default(cuid())
-//   userId    String
-//   name      String        @default("Untitled Workflow")
-//   nodes     Json
-//   edges     Json
-//   createdAt DateTime      @default(now())
-//   updatedAt DateTime      @updatedAt
-//   runs      WorkflowRun[]
-// }
+  // model Workflow {
+  //   id        String        @id @default(cuid())
+  //   userId    String
+  //   name      String        @default("Untitled Workflow")
+  //   nodes     Json
+  //   edges     Json
+  //   createdAt DateTime      @default(now())
+  //   updatedAt DateTime      @updatedAt
+  //   runs      WorkflowRun[]
+  // }
 
-// model WorkflowRun {
-//   id         String   @id @default(cuid())
-//   workflowId String
-//   status     String
-//   createdAt  DateTime @default(now())
+  // model WorkflowRun {
+  //   id         String   @id @default(cuid())
+  //   workflowId String
+  //   status     String
+  //   createdAt  DateTime @default(now())
 
-//   workflow   Workflow @relation(fields: [workflowId], references: [id])
-// }
-
-
+  //   workflow   Workflow @relation(fields: [workflowId], references: [id])
+  // }
 
 
-generator client {
-  provider = "prisma-client-js"
-}
-
-datasource db {
-  provider = "postgresql"
-}
 
 
-model User {
-  id    String @id @default(cuid())
-  email String @unique
-  name  String?
-}
+  generator client {
+    provider = "prisma-client-js"
+  }
 
+  datasource db {
+    provider = "postgresql"
+  }
 
-model Workflow {
-  id        String        @id @default(cuid())
-  userId    String
-  name      String        @default("Untitled Workflow")
-  nodes     Json
-  edges     Json
-  createdAt DateTime      @default(now())
-  updatedAt DateTime      @updatedAt
+  model User {
+    id    String  @id @default(cuid())
+    email String  @unique
+    name  String?
+  }
 
-  runs      WorkflowRun[]
-}
+  model Workflow {
+    id        String        @id @default(cuid())
+    userId    String
+    name      String        @default("Untitled Workflow")
+    nodes     Json
+    edges     Json
+    createdAt DateTime      @default(now())
+    updatedAt DateTime      @updatedAt
 
-model WorkflowRun {
-  id         String   @id @default(cuid())
-  workflowId String
-  status     String
-  createdAt  DateTime @default(now())
+    runs      WorkflowRun[]
+  }
 
-  workflow   Workflow @relation(fields: [workflowId], references: [id])
-}
+  model WorkflowRun {
+    id           String   @id @default(cuid())
+    workflowId   String
+ workflowName String? 
+    type         String   @default("full")
+    nodeCount    Int      @default(0)
+    status       String   @default("running")
+    duration     Int?     // ← add this
+    errorMessage String?  // ← add this
+    createdAt    DateTime @default(now())
+
+    workflow Workflow @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  }

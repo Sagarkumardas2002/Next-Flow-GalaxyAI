@@ -43,39 +43,73 @@ export default function AnimatedEdge({
 
   return (
     <>
-      {/* Glow blur behind edge */}
-      {isRunning && (
-        <path
-          d={edgePath}
-          fill="none"
-          stroke="rgba(168,85,247,0.35)"
-          strokeWidth={10}
-          style={{ filter: "blur(5px)" }}
-        />
-      )}
-
-      {/* Main edge line */}
+      {/* ── ALWAYS: BaseEdge handles React Flow's hit area, selection, and deletion.
+           Never remove this — without it edges lose interactivity and get dropped. ── */}
       <BaseEdge
         path={edgePath}
         markerEnd={markerEnd}
         style={{
-          stroke: isRunning ? "#a855f7" : "#3f3f46",
-          strokeWidth: isRunning ? 2 : 1.5,
-          transition: "stroke 0.3s",
+          stroke: isRunning ? "#a855f7" : "rgba(168,85,247,0.35)",
+          strokeWidth: isRunning ? 2 : 1.5, 
+          strokeDasharray: isRunning ? undefined : "4 8",
+          strokeLinecap: "round",
+          transition: "stroke 0.3s, stroke-width 0.2s",
         }}
       />
 
-      {/* ⚡ Lightning dash */}
+      {/* ── RUNNING ONLY: visual layers on top of BaseEdge ── */}
       {isRunning && (
-        <path
-          d={edgePath}
-          fill="none"
-          stroke="#e9d5ff"
-          strokeWidth={1.5}
-          strokeDasharray="6 14"
-          strokeLinecap="round"
-          className="edge-lightning"
-        />
+        <>
+          {/* 1. Wide glow blur behind */}
+          <path
+            d={edgePath}
+            fill="none"
+            stroke="rgba(168,85,247,0.25)"
+            strokeWidth={16}
+            style={{ filter: "blur(6px)", pointerEvents: "none" }}
+          />
+
+          {/* 2. Flowing dashes — source → destination (class defined in globals.css) */}
+          <path
+            d={edgePath}
+            fill="none"
+            stroke="#e9d5ff"
+            strokeWidth={2}
+            strokeDasharray="8 18"
+            strokeLinecap="round"
+            className="edge-flow"
+            style={{ pointerEvents: "none" }}
+          />
+
+          {/* 3. Traveling particle — leading dot */}
+          <circle
+            r={3}
+            fill="#fff"
+            opacity={0.9}
+            style={{ pointerEvents: "none" }}
+          >
+            <animateMotion
+              dur="1.1s"
+              repeatCount="indefinite"
+              path={edgePath}
+            />
+          </circle>
+
+          {/* 4. Traveling particle — trailing dot (offset by half cycle) */}
+          <circle
+            r={2}
+            fill="#e9d5ff"
+            opacity={0.6}
+            style={{ pointerEvents: "none" }}
+          >
+            <animateMotion
+              dur="1.1s"
+              begin="-0.55s"
+              repeatCount="indefinite"
+              path={edgePath}
+            />
+          </circle>
+        </>
       )}
     </>
   );
