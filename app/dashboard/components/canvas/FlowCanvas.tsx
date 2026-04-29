@@ -37,7 +37,7 @@ export default function FlowCanvas() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const t = setTimeout(() => setLoading(false), 900);
+    const t = setTimeout(() => setLoading(false), 2100);
     return () => clearTimeout(t);
   }, []);
 
@@ -113,8 +113,8 @@ export default function FlowCanvas() {
       <div className="w-full h-full bg-[#111111] relative overflow-hidden">
         <style>{`
         @keyframes canvas-sweep {
-          0%   { transform: translateX(-200%); }
-          100% { transform: translateX(200%); }
+          0%   { transform: translateX(-100%); }
+          100% { transform: translateX(300%); }
         }
         .canvas-skeleton {
           position: absolute;
