@@ -98,6 +98,7 @@ export default function ExtractNode({ id }: NodeProps) {
     <BaseNode
       title="Extract Frame"
       icon="⬡"
+      nodeId={id}
       inputHandles={["input"]}
       outputs={1}
       status={status}
