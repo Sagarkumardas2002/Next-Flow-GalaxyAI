@@ -49,11 +49,12 @@ export default function AnimatedEdge({
         path={edgePath}
         markerEnd={markerEnd}
         style={{
-          stroke: isRunning ? "#a855f7" : "rgba(168,85,247,0.35)",
-          strokeWidth: isRunning ? 2 : 1.5, 
-          strokeDasharray: isRunning ? undefined : "4 8",
+          stroke: isRunning ? "#a855f7" : "#a855f7",
+          strokeWidth: isRunning ? 4 : 3,
+          strokeDasharray: isRunning ? undefined : "8 4",
+          opacity: isRunning ? 1 : 0.75,
           strokeLinecap: "round",
-          transition: "stroke 0.3s, stroke-width 0.2s",
+          transition: "stroke 0.3s, stroke-width 0.3s",
         }}
       />
 
@@ -64,8 +65,8 @@ export default function AnimatedEdge({
           <path
             d={edgePath}
             fill="none"
-            stroke="rgba(168,85,247,0.25)"
-            strokeWidth={16}
+            stroke="rgba(168,85,247,0.35)"
+            strokeWidth={22}
             style={{ filter: "blur(6px)", pointerEvents: "none" }}
           />
 
@@ -74,7 +75,7 @@ export default function AnimatedEdge({
             d={edgePath}
             fill="none"
             stroke="#e9d5ff"
-            strokeWidth={2}
+            strokeWidth={3}
             strokeDasharray="8 18"
             strokeLinecap="round"
             className="edge-flow"
