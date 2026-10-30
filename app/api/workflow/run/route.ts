@@ -107,7 +107,7 @@ export async function POST(req: Request) {
       userMessage,
       systemPrompt: systemPrompt ?? null,
       imageUrl: imageUrl ?? null,
-      model: model ?? null,
+            selectedModel: model ?? null,
       workflowId,
       nodeId,
     });
