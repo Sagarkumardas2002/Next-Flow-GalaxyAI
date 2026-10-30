@@ -1,0 +1,2108 @@
+﻿=== package.json ===
+{
+  "name": "nextflow",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "prisma generate && next build",
+    "start": "next start",
+    "lint": "eslint"
+  },
+  "dependencies": {
+    "@clerk/nextjs": "^7.2.3",
+    "@google/generative-ai": "^0.24.1",
+    "@neondatabase/serverless": "^1.1.0",
+    "@prisma/adapter-neon": "^7.8.0",
+    "@prisma/client": "^7.8.0",
+    "@trigger.dev/sdk": "4.4.6",
+    "@uppy/core": "^5.2.0",
+    "@uppy/react": "^5.2.0",
+    "@uppy/transloadit": "^5.5.1",
+    "@xyflow/react": "^12.10.2",
+    "dotenv": "^17.4.2",
+    "lucide-react": "^1.8.0",
+    "next": "16.2.4",
+    "prisma": "^7.8.0",
+    "react": "19.2.4",
+    "react-dom": "19.2.4",
+    "zod": "^3.25.76",
+    "zustand": "^5.0.12"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4",
+    "@trigger.dev/build": "4.4.6",
+    "@types/node": "^20.19.39",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "eslint": "^9",
+    "eslint-config-next": "16.2.4",
+    "tailwindcss": "^4",
+    "typescript": "^5"
+  }
+}
+
+=== .env variable NAMES only ===
+-- .env
+DATABASE_URL
+-- .env.local
+    NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY
+    CLERK_SECRET_KEY
+    NEXT_PUBLIC_CLERK_SIGN_IN_URL
+    NEXT_PUBLIC_CLERK_SIGN_UP_URL
+    NEXT_PUBLIC_CLERK_AFTER_SIGN_IN_URL
+    NEXT_PUBLIC_CLERK_AFTER_SIGN_UP_URL
+    TRIGGER_SECRET_KEY
+    NEXT_PUBLIC_TRANSLOADIT_KEY
+    TRANSLOADIT_SECRET
+    NEXT_PUBLIC_TRANSLOADIT_IMAGE_TEMPLATE_ID
+    NEXT_PUBLIC_TRANSLOADIT_VIDEO_TEMPLATE_ID
+    GEMINI_API_KEY
+GROQ_API_KEY
+
+=== D:\Galaxy.AI\nextflow\app\api\workflow\run\route.ts ===
+// export const runtime = "nodejs";
+
+// import { auth } from "@clerk/nextjs/server";
+
+// const GEMINI_MODELS = [
+//   "gemini-2.5-flash",
+//   "gemini-2.0-flash",
+//   "gemini-1.5-flash",
+// ];
+
+// async function fetchImageAsBase64(
+//   url: string,
+// ): Promise<{ data: string; mimeType: string }> {
+//   const res = await fetch(url);
+//   if (!res.ok) throw new Error(`Failed to fetch image: ${url}`);
+//   const contentType = res.headers.get("content-type") ?? "image/jpeg";
+//   const mimeType = contentType.split(";")[0].trim();
+//   const buffer = await res.arrayBuffer();
+//   const data = Buffer.from(buffer).toString("base64");
+//   return { data, mimeType };
+// }
+
+// async function callGemini(
+//   userMessage: string,
+//   systemPrompt?: string | null,
+//   imageUrl?: string | null,
+// ): Promise<{ output: string; model: string; fallback?: boolean }> {
+//   const skipped: string[] = [];
+
+//   let imageData: { data: string; mimeType: string } | null = null;
+//   if (imageUrl) {
+//     try {
+//       imageData = await fetchImageAsBase64(imageUrl);
+//     } catch (err) {
+//       console.warn(`âš ï¸ Could not load image, running text-only: ${err}`);
+//     }
+//   }
+
+//   for (const model of GEMINI_MODELS) {
+//     try {
+//       const parts: object[] = [];
+
+//       if (imageData) {
+//         parts.push({
+//           inline_data: {
+//             mime_type: imageData.mimeType,
+//             data: imageData.data,
+//           },
+//         });
+//       }
+
+//       parts.push({ text: userMessage });
+
+//       const res = await fetch(
+//         `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${process.env.GEMINI_API_KEY}`,
+//         {
+//           method: "POST",
+//           headers: { "Content-Type": "application/json" },
+//           body: JSON.stringify({
+//             contents: [{ role: "user", parts }],
+//             ...(systemPrompt && {
+//               systemInstruction: { parts: [{ text: systemPrompt }] },
+//             }),
+//           }),
+//         },
+//       );
+
+//       const data = await res.json();
+
+//       if (data?.error) {
+//         const type = data.error.code === 429 ? "quota" : "not_found";
+//         skipped.push(`${model}(${type})`);
+//         await new Promise((r) => setTimeout(r, 500));
+//         continue;
+//       }
+
+//       const output = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+//       if (!output) {
+//         skipped.push(`${model}(empty)`);
+//         continue;
+//       }
+
+//       console.log(
+//         skipped.length > 0
+//           ? `âš¡ skipped: [${skipped.join(", ")}] â†’ âœ… ${model}`
+//           : `âœ… model: ${model}`,
+//       );
+
+//       return { output, model };
+//     } catch {
+//       skipped.push(`${model}(network)`);
+//       await new Promise((r) => setTimeout(r, 500));
+//     }
+//   }
+
+//   const hasQuota = skipped.some((s) => s.includes("quota"));
+//   return {
+//     output: hasQuota
+//       ? "Rate limit reached. Please wait a moment and try again."
+//       : "AI models are currently unavailable. Please try again later.",
+//     model: "none",
+//     fallback: true,
+//   };
+// }
+
+// export async function POST(req: Request) {
+//   try {
+//     const { userId } = await auth();
+//     if (!userId) {
+//       return Response.json({ error: "Unauthorized" }, { status: 401 });
+//     }
+
+//     const { userMessage, systemPrompt, imageUrl } = await req.json();
+
+//     if (!userMessage?.trim()) {
+//       return Response.json(
+//         { success: false, error: "No userMessage provided" },
+//         { status: 400 },
+//       );
+//     }
+
+//     if (!process.env.GEMINI_API_KEY) {
+//       return Response.json(
+//         { success: false, error: "GEMINI_API_KEY missing" },
+//         { status: 500 },
+//       );
+//     }
+
+//     console.log(`ðŸ“ userMessage: ${userMessage}`);
+//     console.log(`ðŸŽ­ systemPrompt: ${systemPrompt ?? "none"}`);
+//     console.log(`ðŸ–¼ï¸ imageUrl: ${imageUrl ?? "none"}`);
+
+//     const { output, model, fallback } = await callGemini(
+//       userMessage,
+//       systemPrompt,
+//       imageUrl,
+//     );
+
+//     return Response.json({ success: !fallback, output, model });
+//   } catch (err) {
+//     console.error("POST /api/workflow/run error:", err);
+//     return Response.json(
+//       { success: false, error: String(err), output: "Server error." },
+//       { status: 500 },
+//     );
+//   }
+// }
+
+// export const runtime = "nodejs";
+// import { auth } from "@clerk/nextjs/server";
+// import { tasks, runs } from "@trigger.dev/sdk/v3";
+// import type { runLLMTask } from "@/trigger/jobs/runLLM";
+
+// export async function POST(req: Request) {
+//   try {
+//     const { userId } = await auth();
+//     if (!userId) {
+//       return Response.json({ error: "Unauthorized" }, { status: 401 });
+//     }
+
+//     const { workflowId, nodeId, userMessage, systemPrompt, imageUrl } =
+//       await req.json();
+
+//     if (!userMessage?.trim()) {
+//       return Response.json(
+//         { success: false, error: "No userMessage provided" },
+//         { status: 400 },
+//       );
+//     }
+
+//     // â”€â”€ STEP 1: Fire the Trigger.dev task â”€â”€
+//     const handle = await tasks.trigger<typeof runLLMTask>("run-llm", {
+//       userMessage,
+//       systemPrompt: systemPrompt ?? null,
+//       imageUrl: imageUrl ?? null,
+//       workflowId,
+//       nodeId,
+//     });
+
+//     console.log(`ðŸš€ Triggered run-llm | runId: ${handle.id}`);
+
+//     // â”€â”€ STEP 2: Poll until complete (max 2 min) â”€â”€
+//     const maxAttempts = 60;
+//     let attempts = 0;
+
+//     const IN_PROGRESS_STATUSES = [
+//       "PENDING_VERSION",
+//       "DEQUEUED",
+//       "WAITING",
+//       "EXECUTING", // â† was missing, causing early failure
+//       "REATTEMPTING",
+//       "FROZEN",
+//       "DELAYED",
+//       "WAITING_FOR_DEPLOY",
+//       "QUEUED",
+//     ];
+
+//     while (attempts < maxAttempts) {
+//       await new Promise((r) => setTimeout(r, 2000));
+//       attempts++;
+
+//       const run = await runs.retrieve(handle.id);
+//       console.log(`ðŸ”„ Poll #${attempts}: ${run.status}`);
+
+//       // Still in progress â€” keep polling
+//       if (IN_PROGRESS_STATUSES.includes(run.status as string)) {
+//         continue;
+//       }
+
+//       // Successfully completed
+//       if (run.status === "COMPLETED") {
+//         const output = run.output as {
+//           success: boolean;
+//           output: string;
+//           model: string;
+//           fallback?: boolean;
+//         };
+
+//         console.log(`âœ… run-llm completed | model: ${output.model}`);
+
+//         return Response.json({
+//           success: output.success,
+//           output: output.output,
+//           model: output.model,
+//         });
+//       }
+
+//       // Any other status is a terminal failure
+//       console.warn(`âŒ run-llm ended with status: ${run.status}`);
+//       return Response.json({
+//         success: false,
+//         output: `LLM task failed with status: ${run.status}. Please try again.`,
+//         model: "none",
+//       });
+//     }
+
+//     // Timed out
+//     return Response.json({
+//       success: false,
+//       output: "Request timed out. Please try again.",
+//       model: "none",
+//     });
+//   } catch (err) {
+//     console.error("POST /api/workflow/run error:", err);
+//     return Response.json(
+//       { success: false, error: String(err), output: "Server error." },
+//       { status: 500 },
+//     );
+//   }
+// }
+
+export const runtime = "nodejs";
+
+import { auth } from "@clerk/nextjs/server";
+import { tasks, runs } from "@trigger.dev/sdk/v3";
+import { prisma } from "@/lib/prisma";
+import type { runLLMTask } from "@/trigger/jobs/runLLM";
+
+export async function POST(req: Request) {
+  const startedAt = Date.now();
+  let dbRunId: string | null = null;
+
+  try {
+    const { userId } = await auth();
+    if (!userId) {
+      return Response.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const { workflowId, nodeId, userMessage, systemPrompt, imageUrl } =
+      await req.json();
+
+    if (!userMessage?.trim()) {
+      return Response.json(
+        { success: false, error: "No userMessage provided" },
+        { status: 400 },
+      );
+    }
+
+    // â”€â”€ Get workflow info for history â”€â”€
+    // Also serves as the FK existence check â€” if workflow isn't in DB yet
+    // (unsaved), workflow will be null and we skip the run record entirely.
+    const workflow = workflowId
+      ? await prisma.workflow.findUnique({ where: { id: workflowId } })
+      : null;
+
+    const nodeCount = (() => {
+      try {
+        const parsed = JSON.parse(JSON.stringify(workflow?.nodes ?? []));
+        return Array.isArray(parsed) ? parsed.length : 0;
+      } catch {
+        return 0;
+      }
+    })();
+
+    // â”€â”€ Create run record only when workflow exists in DB â”€â”€
+    // Skipped for unsaved workflows to avoid FK constraint violation (P2003).
+    if (workflow) {
+      const dbRun = await prisma.workflowRun.create({
+        data: {
+          workflowId,
+          workflowName: workflow.name ?? "Untitled Workflow",
+          type: "full",
+          nodeCount,
+          status: "running",
+        },
+      });
+      dbRunId = dbRun.id;
+    }
+
+    // â”€â”€ STEP 1: Fire the Trigger.dev task â”€â”€
+    const handle = await tasks.trigger<typeof runLLMTask>("run-llm", {
+      userMessage,
+      systemPrompt: systemPrompt ?? null,
+      imageUrl: imageUrl ?? null,
+      workflowId,
+      nodeId,
+    });
+
+    console.log(`ðŸš€ Triggered run-llm | runId: ${handle.id}`);
+
+    // â”€â”€ STEP 2: Poll until complete (max 2 min) â”€â”€
+    const maxAttempts = 60;
+    let attempts = 0;
+
+    const IN_PROGRESS_STATUSES = [
+      "PENDING_VERSION",
+      "DEQUEUED",
+      "WAITING",
+      "EXECUTING",
+      "REATTEMPTING",
+      "FROZEN",
+      "DELAYED",
+      "WAITING_FOR_DEPLOY",
+      "QUEUED",
+    ];
+
+    while (attempts < maxAttempts) {
+      await new Promise((r) => setTimeout(r, 2000));
+      attempts++;
+
+      const run = await runs.retrieve(handle.id);
+      console.log(`ðŸ”„ Poll #${attempts}: ${run.status}`);
+
+      if (IN_PROGRESS_STATUSES.includes(run.status as string)) {
+        continue;
+      }
+
+      if (run.status === "COMPLETED") {
+        const output = run.output as {
+          success: boolean;
+          output: string;
+          model: string;
+          fallback?: boolean;
+        };
+
+        const duration = Date.now() - startedAt;
+
+        if (dbRunId) {
+          await prisma.workflowRun.update({
+            where: { id: dbRunId },
+            data: {
+              status: output.success ? "success" : "error",
+              duration,
+              errorMessage: output.success ? null : "LLM returned failure",
+            },
+          });
+        }
+
+        console.log(`âœ… run-llm completed | model: ${output.model}`);
+
+        return Response.json({
+          success: output.success,
+          output: output.output,
+          model: output.model,
+        });
+      }
+
+      // Terminal failure
+      const duration = Date.now() - startedAt;
+      const errorMessage = `LLM task failed with status: ${run.status}`;
+
+      if (dbRunId) {
+        await prisma.workflowRun.update({
+          where: { id: dbRunId },
+          data: { status: "error", duration, errorMessage },
+        });
+      }
+
+      console.warn(`âŒ run-llm ended with status: ${run.status}`);
+      return Response.json({
+        success: false,
+        output: `${errorMessage}. Please try again.`,
+        model: "none",
+      });
+    }
+
+    // Timed out
+    const duration = Date.now() - startedAt;
+    if (dbRunId) {
+      await prisma.workflowRun.update({
+        where: { id: dbRunId },
+        data: { status: "error", duration, errorMessage: "Request timed out" },
+      });
+    }
+
+    return Response.json({
+      success: false,
+      output: "Request timed out. Please try again.",
+      model: "none",
+    });
+  } catch (err) {
+    if (dbRunId) {
+      await prisma.workflowRun
+        .update({
+          where: { id: dbRunId },
+          data: {
+            status: "error",
+            duration: Date.now() - startedAt,
+            errorMessage: String(err),
+          },
+        })
+        .catch(() => {});
+    }
+
+    console.error("POST /api/workflow/run error:", err);
+    return Response.json(
+      { success: false, error: String(err), output: "Server error." },
+      { status: 500 },
+    );
+  }
+}
+
+=== D:\Galaxy.AI\nextflow\app\dashboard\components\canvas\nodes\LLMNode.tsx ===
+
+
+"use client";
+import { useState } from "react";
+import { type NodeProps, useEdges } from "@xyflow/react";
+import BaseNode from "./BaseNode";
+
+type LLMNodeData = {
+  output?: string;
+  model?: string;
+  status?: "idle" | "running" | "success" | "error";
+};
+
+const LLM_INPUT_HANDLES = ["system_prompt", "user_message", "images", "video"];
+
+function HandleLabel({
+  handleId,
+  label,
+  connected,
+  supported = true,
+}: {
+  handleId: string;
+  label: string;
+  connected: boolean;
+  supported?: boolean;
+}) {
+  return (
+    <div className="flex items-center gap-1 flex-1 min-w-0">
+      <span
+        className={`w-1.5 h-1.5 rounded-full flex-shrink-0 transition-colors duration-300 ${
+          connected && supported
+            ? "bg-green-400 shadow-[0_0_4px_rgba(74,222,128,0.8)]"
+            : connected && !supported
+              ? "bg-yellow-400"
+              : "bg-zinc-600"
+        }`}
+      />
+      <span
+        className={`text-[9px] truncate transition-colors duration-300 ${
+          connected && supported
+            ? "text-green-400"
+            : connected && !supported
+              ? "text-yellow-400"
+              : "text-zinc-500"
+        }`}
+      >
+        {label}
+        {!supported && (
+          <span className="ml-1 text-[8px] text-zinc-600">(soon)</span>
+        )}
+      </span>
+      {connected && supported && (
+        <span className="text-[8px] text-green-500/70 ml-auto flex-shrink-0">
+          âœ“
+        </span>
+      )}
+    </div>
+  );
+}
+
+export default function LLMNode({ id, data }: NodeProps) {
+  const { output, model, status } = (data ?? {}) as LLMNodeData;
+  const [copied, setCopied] = useState(false);
+
+  // â”€â”€ FIX 1: No useEffect â€” derive expanded state directly.
+  // userCollapsed tracks if the user manually collapsed after output arrived.
+  const [userCollapsed, setUserCollapsed] = useState(false);
+  const isExpanded = status === "success" && !!output && !userCollapsed;
+
+  const allEdges = useEdges();
+  const incomingEdges = allEdges.filter((e) => e.target === id);
+
+  const isConnected = (handleId: string) =>
+    incomingEdges.some((e) => e.targetHandle === handleId);
+
+  const handleCopy = async () => {
+    if (!output) return;
+    await navigator.clipboard.writeText(output);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleExport = () => {
+    if (!output) return;
+    const blob = new Blob([output], { type: "text/plain" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `llm-output-${Date.now()}.txt`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  return (
+    // â”€â”€ FIX 2: Wrap in div for dynamic width â€” BaseNode doesn't accept style â”€â”€
+    <div
+      style={{
+        width: isExpanded ? "840px" : undefined,
+        transition: "width 0.3s ease, height 0.3s ease",
+      }}
+    >
+      <BaseNode
+        title="Run LLM"
+        icon="âœ¦"
+        inputHandles={LLM_INPUT_HANDLES}
+        outputs={1}
+        status={status ?? "idle"}
+      >
+        {/* Model selector */}
+        <select className="w-full bg-[#0f0f0f] border border-[#2a2a2a] rounded px-2 py-1 text-[10px] mb-3">
+          <option>gemini-2.5-flash</option>
+          <option>gemini-2.5-flash-lite</option>
+          <option>gemini-1.5-flash</option>
+        </select>
+
+        {/* Handle labels with live dots */}
+        <div className="flex flex-col gap-1.5 mb-2">
+          <div className="flex items-center gap-2">
+            <HandleLabel
+              handleId="system_prompt"
+              label="system_prompt"
+              connected={isConnected("system_prompt")}
+              supported={true}
+            />
+            <HandleLabel
+              handleId="user_message"
+              label="user_message"
+              connected={isConnected("user_message")}
+              supported={true}
+            />
+          </div>
+          <div className="flex items-center gap-2">
+            <HandleLabel
+              handleId="images"
+              label="images"
+              connected={isConnected("images")}
+              supported={true}
+            />
+            <HandleLabel
+              handleId="video"
+              label="video"
+              connected={isConnected("video")}
+              supported={true}
+            />
+          </div>
+        </div>
+
+        <div className="border-t border-[#2a2a2a] my-2" />
+
+        {/* â”€â”€ IDLE â”€â”€ */}
+        {(!status || status === "idle") && (
+          <div className="border border-zinc-700 bg-zinc-800/40 text-zinc-500 text-center py-1.5 rounded text-[10px]">
+            Waiting to runâ€¦
+          </div>
+        )}
+
+        {/* â”€â”€ RUNNING â”€â”€ */}
+        {status === "running" && (
+          <div className="border border-purple-500/50 bg-purple-500/10 text-purple-400 text-center py-2 rounded text-[10px] flex items-center justify-center gap-2">
+            <span className="w-1.5 h-1.5 rounded-full bg-purple-400 animate-ping inline-block" />
+            <span className="w-1.5 h-1.5 rounded-full bg-purple-400 animate-ping inline-block [animation-delay:0.2s]" />
+            <span className="w-1.5 h-1.5 rounded-full bg-purple-400 animate-ping inline-block [animation-delay:0.4s]" />
+            <span className="ml-1">Processingâ€¦</span>
+          </div>
+        )}
+
+        {/* â”€â”€ SUCCESS â”€â”€ */}
+        {status === "success" && output && (
+          <>
+            {/* Model badge + expand/collapse toggle */}
+            <div className="flex items-center justify-between mb-1">
+              {model && model !== "none" ? (
+                <div className="text-[9px] text-purple-400/70">ðŸ¤– {model}</div>
+              ) : (
+                <div />
+              )}
+
+              <button
+                onClick={() => setUserCollapsed((prev) => !prev)}
+                title={isExpanded ? "Collapse output" : "Expand output"}
+                className="flex items-center gap-1 px-1.5 py-0.5 bg-zinc-800 hover:bg-zinc-700 border border-zinc-600 rounded text-[9px] text-zinc-400 hover:text-white transition-colors cursor-pointer"
+              >
+                {isExpanded ? (
+                  <>
+                    <svg
+                      width="9"
+                      height="9"
+                      viewBox="0 0 12 12"
+                      fill="none"
+                      className="mr-1"
+                    >
+                      <path
+                        d="M2 8l4-4 4 4"
+                        stroke="currentColor"
+                        strokeWidth="1.5"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                    </svg>
+                    Collapse
+                  </>
+                ) : (
+                  <>
+                    <svg
+                      width="9"
+                      height="9"
+                      viewBox="0 0 12 12"
+                      fill="none"
+                      className="mr-1"
+                    >
+                      <path
+                        d="M2 4l4 4 4-4"
+                        stroke="currentColor"
+                        strokeWidth="1.5"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                    </svg>
+                    Expand
+                  </>
+                )}
+              </button>
+            </div>
+
+            <div className="relative mb-2">
+              <button
+                onClick={handleCopy}
+                title="Copy output"
+                className="absolute top-2 right-4 z-10 flex items-center gap-1 px-1.5 py-0.5 bg-zinc-700 hover:bg-zinc-600 border border-zinc-600 rounded text-[9px] text-zinc-300 hover:text-white transition-colors cursor-pointer"
+              >
+                {copied ? (
+                  <>
+                    <svg width="9" height="9" viewBox="0 0 12 12" fill="none">
+                      <path
+                        d="M2 6l3 3 5-5"
+                        stroke="#4ade80"
+                        strokeWidth="1.5"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                    </svg>
+                    <span className="text-green-400">Copied!</span>
+                  </>
+                ) : (
+                  <svg width="9" height="9" viewBox="0 0 12 12" fill="none">
+                    <rect
+                      x="4"
+                      y="1"
+                      width="7"
+                      height="8"
+                      rx="1"
+                      stroke="currentColor"
+                      strokeWidth="1.2"
+                    />
+                    <path
+                      d="M1 4h2v6a1 1 0 001 1h5v1H3a2 2 0 01-2-2V4z"
+                      fill="currentColor"
+                    />
+                  </svg>
+                )}
+              </button>
+
+              {/* Output box: height animates with isExpanded */}
+              <div
+                className="bg-[#0f0f0f] border border-[#2a2a2a] rounded p-2 pt-6 text-[10px] text-purple-300 whitespace-pre-wrap leading-relaxed transition-all duration-300"
+                style={{
+                  height: isExpanded ? "280px" : "60px",
+                  overflowY: isExpanded ? "auto" : "hidden",
+                  scrollbarWidth: "thin",
+                  scrollbarColor: "#3f3f46 transparent",
+                }}
+              >
+                {output}
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <div className="flex-1 border border-purple-500/30 bg-purple-500/10 text-purple-400 text-center py-1 rounded text-[10px]">
+                âœ“ Done
+              </div>
+              <button
+                onClick={handleExport}
+                className="flex-1 flex items-center justify-center gap-1 py-1 bg-green-600 hover:bg-green-500 border border-green-500 text-white rounded text-[10px] transition-colors cursor-pointer"
+              >
+                Save
+              </button>
+            </div>
+          </>
+        )}
+
+        {/* â”€â”€ ERROR â”€â”€ */}
+        {status === "error" && (
+          <div className="bg-red-900/20 border border-red-700/40 text-red-400 rounded p-2 text-[10px] whitespace-pre-wrap">
+            {output || "âŒ Something went wrong"}
+          </div>
+        )}
+      </BaseNode>
+    </div>
+  );
+}
+
+=== D:\Galaxy.AI\nextflow\app\page.tsx ===
+// import { currentUser } from "@clerk/nextjs/server";
+// import { redirect } from "next/navigation";
+// import Link from "next/link";
+
+// export default async function Home() {
+//   const user = await currentUser();
+
+//   // âœ… AUTO REDIRECT if already logged in
+//   if (user) {
+//     redirect("/dashboard");
+//   }
+
+//   return (
+//     <main className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-900 via-black to-gray-800 px-4">
+//       <div className="absolute w-80 h-80 bg-blue-500 rounded-full blur-3xl opacity-20 top-10 left-10"></div>
+//       <div className="absolute w-80 h-80 bg-purple-500 rounded-full blur-3xl opacity-20 bottom-10 right-10"></div>
+
+//       <div className="relative z-10 text-center max-w-xl">
+//         <h1 className="text-4xl sm:text-5xl font-bold text-white">
+//           Build Smarter with <span className="text-blue-400">Next.js</span>
+//         </h1>
+
+//         <p className="text-gray-300 mt-4">A simple, fast and modern starter</p>
+
+//         <div className="mt-8">
+//           <Link
+//             href="/sign-in"
+//             className="px-6 py-3 bg-blue-600 rounded-xl text-white"
+//           >
+//             Get Started â†’
+//           </Link>
+//         </div>
+//       </div>
+//     </main>
+//   );
+// }
+
+"use client";
+
+import { useEffect, useRef } from "react";
+import Link from "next/link";
+
+// â”€â”€â”€ Types â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+interface FlowNode {
+  id: number;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  label: string;
+  sub: string;
+  color: string;
+  icon: string;
+  progress: number;
+}
+
+interface FlowEdge {
+  from: number;
+  to: number;
+  port: string;
+  t: number;
+}
+
+interface Point {
+  x: number;
+  y: number;
+}
+
+// â”€â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+function getBezierPoint(
+  x1: number,
+  y1: number,
+  cx1: number,
+  cy1: number,
+  cx2: number,
+  cy2: number,
+  x2: number,
+  y2: number,
+  t: number,
+): Point {
+  const mt = 1 - t;
+  return {
+    x:
+      mt * mt * mt * x1 +
+      3 * mt * mt * t * cx1 +
+      3 * mt * t * t * cx2 +
+      t * t * t * x2,
+    y:
+      mt * mt * mt * y1 +
+      3 * mt * mt * t * cy1 +
+      3 * mt * t * t * cy2 +
+      t * t * t * y2,
+  };
+}
+
+function getPort(n: FlowNode, side: string): Point {
+  if (side === "right") return { x: n.x + n.w, y: n.y + n.h / 2 };
+  if (side === "left") return { x: n.x, y: n.y + n.h / 2 };
+  if (side === "bottom") return { x: n.x + n.w / 2, y: n.y + n.h };
+  return { x: n.x + n.w / 2, y: n.y };
+}
+
+function animCount(id: string, target: number, suffix = "") {
+  const el = document.getElementById(id);
+  if (!el) return;
+  let cur = 0;
+  const step = target / 60;
+  const iv = setInterval(() => {
+    cur = Math.min(cur + step, target);
+    el.textContent = Math.round(cur) + suffix;
+    if (cur >= target) clearInterval(iv);
+  }, 24);
+}
+
+// â”€â”€â”€ Component â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+export default function Home() {
+  const bgRef = useRef<HTMLCanvasElement>(null);
+  const flowRef = useRef<HTMLCanvasElement>(null);
+  const bgRafRef = useRef<number>(0);
+  const flowRafRef = useRef<number>(0);
+
+  // â”€â”€ Background particle network â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  useEffect(() => {
+    const canvas = bgRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d")!;
+
+    const resize = () => {
+      canvas.width = window.innerWidth;
+      canvas.height = document.body.scrollHeight;
+    };
+    resize();
+    window.addEventListener("resize", resize);
+
+    const particles = Array.from({ length: 60 }, () => ({
+      x: Math.random() * window.innerWidth,
+      y: Math.random() * window.innerHeight * 3,
+      vx: (Math.random() - 0.5) * 0.3,
+      vy: (Math.random() - 0.5) * 0.3,
+      r: Math.random() * 1.5 + 0.5,
+    }));
+
+    const draw = () => {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      particles.forEach((p) => {
+        p.x += p.vx;
+        p.y += p.vy;
+        if (p.x < 0) p.x = canvas.width;
+        if (p.x > canvas.width) p.x = 0;
+        if (p.y < 0) p.y = canvas.height;
+        if (p.y > canvas.height) p.y = 0;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+        ctx.fillStyle = "rgba(59,110,245,.4)";
+        ctx.fill();
+      });
+      for (let i = 0; i < particles.length; i++) {
+        for (let j = i + 1; j < particles.length; j++) {
+          const dx = particles[i].x - particles[j].x;
+          const dy = particles[i].y - particles[j].y;
+          const d = Math.sqrt(dx * dx + dy * dy);
+          if (d < 120) {
+            ctx.beginPath();
+            ctx.moveTo(particles[i].x, particles[i].y);
+            ctx.lineTo(particles[j].x, particles[j].y);
+            ctx.strokeStyle = `rgba(59,110,245,${(1 - d / 120) * 0.15})`;
+            ctx.lineWidth = 0.5;
+            ctx.stroke();
+          }
+        }
+      }
+      bgRafRef.current = requestAnimationFrame(draw);
+    };
+    draw();
+
+    return () => {
+      cancelAnimationFrame(bgRafRef.current);
+      window.removeEventListener("resize", resize);
+    };
+  }, []);
+
+  // â”€â”€ Flow canvas â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  useEffect(() => {
+    const canvas = flowRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d")!;
+
+    const dpr = window.devicePixelRatio || 1;
+    const W = canvas.offsetWidth;
+    const H = canvas.offsetHeight;
+    canvas.width = W * dpr;
+    canvas.height = H * dpr;
+    ctx.scale(dpr, dpr);
+
+    const nodes: FlowNode[] = [
+      {
+        id: 0,
+        x: 60,
+        y: 80,
+        w: 130,
+        h: 52,
+        label: "Prompt Input",
+        sub: "text/query",
+        color: "#3b6ef5",
+        icon: "âŒ¨ï¸",
+        progress: 1,
+      },
+      {
+        id: 1,
+        x: 240,
+        y: 40,
+        w: 130,
+        h: 52,
+        label: "LLM Node",
+        sub: "Gemini Pro",
+        color: "#7c3aed",
+        icon: "ðŸ§ ",
+        progress: 0.9,
+      },
+      {
+        id: 2,
+        x: 240,
+        y: 130,
+        w: 130,
+        h: 52,
+        label: "Image Node",
+        sub: "Vision API",
+        color: "#ec4899",
+        icon: "ðŸ–¼ï¸",
+        progress: 0.6,
+      },
+      {
+        id: 3,
+        x: 430,
+        y: 70,
+        w: 130,
+        h: 52,
+        label: "Crop Node",
+        sub: "Transloadit",
+        color: "#f59e0b",
+        icon: "âœ‚ï¸",
+        progress: 0.3,
+      },
+      {
+        id: 4,
+        x: 430,
+        y: 180,
+        w: 130,
+        h: 52,
+        label: "Extract",
+        sub: "Structured",
+        color: "#10b981",
+        icon: "ðŸ“¤",
+        progress: 0,
+      },
+      {
+        id: 5,
+        x: 610,
+        y: 120,
+        w: 130,
+        h: 52,
+        label: "Output",
+        sub: "PostgreSQL",
+        color: "#6366f1",
+        icon: "ðŸ’¾",
+        progress: 0,
+      },
+    ];
+
+    const edges: FlowEdge[] = [
+      { from: 0, to: 1, port: "right-left", t: 0 },
+      { from: 0, to: 2, port: "bottom-left", t: 0 },
+      { from: 1, to: 3, port: "right-left", t: 0 },
+      { from: 2, to: 3, port: "right-left", t: 0 },
+      { from: 3, to: 5, port: "right-left", t: 0 },
+      { from: 2, to: 4, port: "right-left", t: 0 },
+      { from: 4, to: 5, port: "right-left", t: 0 },
+    ];
+
+    let tick = 0;
+
+    const drawFlow = () => {
+      ctx.clearRect(0, 0, W, H);
+      tick++;
+
+      edges.forEach((e) => {
+        e.t = Math.min(e.t + 0.004, 1);
+        const fn = nodes[e.from];
+        const tn = nodes[e.to];
+        const [fs, ts] = e.port.split("-");
+        const p1 = getPort(fn, fs);
+        const p2 = getPort(tn, ts);
+        const cx1 = p1.x + (p2.x - p1.x) * 0.45;
+        const cx2 = p2.x - (p2.x - p1.x) * 0.45;
+
+        ctx.beginPath();
+        ctx.moveTo(p1.x, p1.y);
+        ctx.bezierCurveTo(cx1, p1.y, cx2, p2.y, p2.x, p2.y);
+        ctx.strokeStyle = "rgba(255,255,255,.08)";
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+
+        if (e.t > 0) {
+          const prog = (tick * 0.012 + e.from * 0.3) % 1;
+          const pt = getBezierPoint(
+            p1.x,
+            p1.y,
+            cx1,
+            p1.y,
+            cx2,
+            p2.y,
+            p2.x,
+            p2.y,
+            prog,
+          );
+          ctx.beginPath();
+          ctx.arc(pt.x, pt.y, 4, 0, Math.PI * 2);
+          ctx.fillStyle = "rgba(59,110,245,.9)";
+          ctx.fill();
+          ctx.beginPath();
+          ctx.arc(pt.x, pt.y, 8, 0, Math.PI * 2);
+          ctx.fillStyle = "rgba(59,110,245,.2)";
+          ctx.fill();
+        }
+      });
+
+      nodes.forEach((n) => {
+        const rx = 8;
+        ctx.beginPath();
+        ctx.roundRect(n.x, n.y, n.w, n.h, rx);
+        ctx.fillStyle = "rgba(11,15,26,.92)";
+        ctx.fill();
+        ctx.strokeStyle = n.color + "55";
+        ctx.lineWidth = 1;
+        ctx.stroke();
+
+        // Progress bar
+        ctx.beginPath();
+        ctx.roundRect(n.x, n.y + n.h - 4, n.w * n.progress, 4, [0, 0, rx, rx]);
+        ctx.fillStyle = n.color + "99";
+        ctx.fill();
+
+        if (n.progress < 1) n.progress = Math.min(n.progress + 0.003, 1);
+
+        ctx.font = "11px sans-serif";
+        ctx.fillStyle = n.color;
+        ctx.fillText(n.icon + " " + n.label, n.x + 10, n.y + 20);
+        ctx.font = "9px monospace";
+        ctx.fillStyle = "rgba(255,255,255,.35)";
+        ctx.fillText(n.sub, n.x + 10, n.y + 36);
+      });
+
+      flowRafRef.current = requestAnimationFrame(drawFlow);
+    };
+
+    drawFlow();
+    return () => cancelAnimationFrame(flowRafRef.current);
+  }, []);
+
+  // â”€â”€ Counter animations â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  useEffect(() => {
+    const t = setTimeout(() => {
+      animCount("s1", 6, "+");
+      animCount("s2", 10, "+");
+      animCount("s3", 5, "");
+      animCount("s4", 230, "");
+    }, 400);
+    return () => clearTimeout(t);
+  }, []);
+
+  // â”€â”€â”€ Render â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+  return (
+    <>
+      {/* Google Fonts */}
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;700;800&display=swap');
+
+        *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+        :root {
+          --bg: #03050a;
+          --surface: #0b0f1a;
+          --border: #1a2236;
+          --accent: #3b6ef5;
+          --accent2: #7c3aed;
+          --text: #e8eaf0;
+          --muted: #6b7a99;
+          --node-bg: #0f1729;
+          --success: #10b981;
+          --warn: #f59e0b;
+          --pink: #ec4899;
+        }
+
+        body {
+          background: var(--bg);
+          color: var(--text);
+          font-family: 'Syne', sans-serif;
+          overflow-x: hidden;
+          min-height: 100vh;
+        }
+
+        /* â”€â”€ Particle canvas â”€â”€ */
+        .nf-bg-canvas {
+          position: fixed;
+          inset: 0;
+          z-index: 0;
+          pointer-events: none;
+          opacity: .6;
+        }
+
+        /* â”€â”€ Wrapper â”€â”€ */
+        .nf-wrap { position: relative; z-index: 1; }
+
+        /* â”€â”€ Navbar â”€â”€ */
+        .nf-nav {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          padding: 1.25rem 2.5rem;
+          border-bottom: 1px solid var(--border);
+          backdrop-filter: blur(10px);
+          position: sticky;
+          top: 0;
+          z-index: 100;
+          background: rgba(3,5,10,.7);
+        }
+        .nf-logo { font-size: 1.1rem; font-weight: 800; letter-spacing: .08em; color: var(--text); }
+        .nf-logo span { color: var(--accent); }
+        .nf-nav-links { display: flex; gap: 2rem; align-items: center; }
+        .nf-nav-links a { color: var(--muted); font-size: .85rem; text-decoration: none; letter-spacing: .05em; transition: color .2s; }
+        .nf-nav-links a:hover { color: var(--text); }
+        .nf-nav-cta {
+          background: var(--accent);
+          color: #fff;
+          padding: .5rem 1.25rem;
+          border-radius: 6px;
+          font-size: .85rem;
+          font-weight: 700;
+          text-decoration: none;
+          letter-spacing: .04em;
+          transition: opacity .2s;
+        }
+        .nf-nav-cta:hover { opacity: .85; }
+
+        /* â”€â”€ Hero â”€â”€ */
+        .nf-hero {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 3rem;
+          align-items: center;
+          padding: 5rem 2.5rem 3rem;
+          max-width: 1200px;
+          margin: 0 auto;
+        }
+        .nf-hero-left { display: flex; flex-direction: column; gap: 1.5rem; }
+
+        .nf-badge {
+          display: inline-flex;
+          align-items: center;
+          gap: .5rem;
+          background: rgba(59,110,245,.12);
+          border: 1px solid rgba(59,110,245,.3);
+          border-radius: 100px;
+          padding: .3rem .9rem;
+          font-size: .75rem;
+          font-weight: 700;
+          color: var(--accent);
+          letter-spacing: .08em;
+          width: fit-content;
+        }
+        .nf-badge-dot {
+          width: 6px; height: 6px;
+          border-radius: 50%;
+          background: var(--accent);
+          animation: nfPulse 2s infinite;
+        }
+        @keyframes nfPulse {
+          0%,100% { opacity:1; transform:scale(1); }
+          50% { opacity:.5; transform:scale(.8); }
+        }
+
+        .nf-h1 { font-size: 3.6rem; font-weight: 800; line-height: 1.05; letter-spacing: -.02em; }
+        .nf-h1-line1 { color: var(--text); }
+        .nf-h1-line2 {
+          background: linear-gradient(135deg, var(--accent), var(--accent2), var(--pink));
+          -webkit-background-clip: text;
+          -webkit-text-fill-color: transparent;
+          background-clip: text;
+        }
+
+        .nf-desc {
+          color: var(--muted);
+          line-height: 1.7;
+          font-family: 'Space Mono', monospace;
+          font-size: .85rem;
+        }
+
+        .nf-actions { display: flex; gap: 1rem; align-items: center; margin-top: .5rem; }
+
+        .nf-btn-primary {
+          background: linear-gradient(135deg, var(--accent), var(--accent2));
+          color: #fff;
+          padding: .75rem 1.75rem;
+          border-radius: 8px;
+          font-size: .9rem;
+          font-weight: 700;
+          text-decoration: none;
+          letter-spacing: .04em;
+          transition: opacity .2s, transform .15s;
+          border: none;
+          cursor: pointer;
+          font-family: 'Syne', sans-serif;
+        }
+        .nf-btn-primary:hover { opacity: .9; transform: translateY(-1px); }
+
+        .nf-btn-ghost {
+          color: var(--muted);
+          padding: .75rem 1.5rem;
+          border-radius: 8px;
+          font-size: .9rem;
+          font-weight: 700;
+          text-decoration: none;
+          letter-spacing: .04em;
+          border: 1px solid var(--border);
+          transition: all .2s;
+          background: transparent;
+          cursor: pointer;
+          font-family: 'Syne', sans-serif;
+        }
+        .nf-btn-ghost:hover { color: var(--text); border-color: rgba(255,255,255,.2); }
+
+        .nf-stack { display: flex; align-items: center; gap: .5rem; font-size: .75rem; color: var(--muted); font-family: 'Space Mono', monospace; }
+        .nf-tag { background: var(--surface); border: 1px solid var(--border); border-radius: 4px; padding: .2rem .5rem; font-size: .7rem; color: var(--muted); }
+
+        /* â”€â”€ Flow canvas panel â”€â”€ */
+        .nf-canvas-panel {
+          position: relative;
+          background: var(--surface);
+          border: 1px solid var(--border);
+          border-radius: 16px;
+          overflow: hidden;
+          height: 420px;
+        }
+        .nf-canvas-panel canvas { width: 100%; height: 100%; }
+        .nf-panel-header {
+          position: absolute;
+          top: 12px;
+          left: 16px;
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          z-index: 10;
+        }
+        .nf-dot { width: 10px; height: 10px; border-radius: 50%; }
+        .nf-dot.r { background: #ff5f57; }
+        .nf-dot.y { background: #febc2e; }
+        .nf-dot.g { background: #28c840; }
+        .nf-panel-label { font-size: .7rem; color: var(--muted); font-family: 'Space Mono', monospace; letter-spacing: .05em; margin-left: 4px; }
+        .nf-exec-badge {
+          position: absolute;
+          top: 12px;
+          right: 16px;
+          background: rgba(16,185,129,.12);
+          border: 1px solid rgba(16,185,129,.3);
+          color: #10b981;
+          font-size: .68rem;
+          font-family: 'Space Mono', monospace;
+          padding: .25rem .6rem;
+          border-radius: 100px;
+          display: flex;
+          align-items: center;
+          gap: .35rem;
+          z-index: 10;
+        }
+        .nf-exec-dot { width: 5px; height: 5px; border-radius: 50%; background: #10b981; animation: nfPulse 1.5s infinite; }
+
+        /* â”€â”€ Stats row â”€â”€ */
+        .nf-stats-row {
+          display: grid;
+          grid-template-columns: repeat(4,1fr);
+          gap: 1px;
+          background: var(--border);
+          border: 1px solid var(--border);
+          border-radius: 12px;
+          overflow: hidden;
+          max-width: 1200px;
+          margin: 0 auto 4rem;
+        }
+        .nf-stat { background: var(--surface); padding: 1.5rem 2rem; text-align: center; }
+        .nf-stat-num {
+          font-size: 2rem;
+          font-weight: 800;
+          background: linear-gradient(135deg, var(--accent), var(--accent2));
+          -webkit-background-clip: text;
+          -webkit-text-fill-color: transparent;
+          background-clip: text;
+        }
+        .nf-stat-label { font-size: .75rem; color: var(--muted); font-family: 'Space Mono', monospace; letter-spacing: .06em; margin-top: .25rem; }
+
+        /* â”€â”€ Nodes section â”€â”€ */
+        .nf-nodes-section { padding: 0 2.5rem 4rem; max-width: 1200px; margin: 0 auto; }
+        .nf-section-label { font-size: .7rem; font-family: 'Space Mono', monospace; letter-spacing: .12em; color: var(--accent); margin-bottom: 1rem; }
+        .nf-section-title { font-size: 1.8rem; font-weight: 800; margin-bottom: 2rem; line-height: 1.2; }
+        .nf-nodes-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 12px; }
+
+        .nf-node-card {
+          background: var(--node-bg);
+          border: 1px solid var(--border);
+          border-radius: 12px;
+          padding: 1.25rem 1.5rem;
+          transition: border-color .2s, transform .15s;
+          cursor: default;
+        }
+        .nf-node-card:hover { border-color: rgba(59,110,245,.4); transform: translateY(-2px); }
+        .nf-node-icon { width: 36px; height: 36px; border-radius: 8px; display: flex; align-items: center; justify-content: center; margin-bottom: 1rem; font-size: 1rem; }
+        .nf-node-name { font-size: .85rem; font-weight: 700; margin-bottom: .4rem; letter-spacing: .03em; }
+        .nf-node-desc { font-size: .75rem; color: var(--muted); line-height: 1.6; font-family: 'Space Mono', monospace; }
+        .nf-node-badge { display: inline-block; margin-top: .6rem; font-size: .65rem; font-family: 'Space Mono', monospace; padding: .15rem .5rem; border-radius: 4px; font-weight: 700; }
+
+        /* â”€â”€ Tech strip â”€â”€ */
+        .nf-tech-strip {
+          background: var(--surface);
+          border-top: 1px solid var(--border);
+          border-bottom: 1px solid var(--border);
+          padding: 1rem 0;
+          overflow: hidden;
+        }
+        .nf-tech-track { display: flex; gap: 2.5rem; animation: nfScroll 20s linear infinite; width: max-content; align-items: center; }
+        @keyframes nfScroll { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+        .nf-tech-item { display: flex; align-items: center; gap: .5rem; font-size: .75rem; font-family: 'Space Mono', monospace; color: var(--muted); white-space: nowrap; }
+        .nf-tech-dot { width: 4px; height: 4px; border-radius: 50%; background: var(--accent); }
+
+        /* â”€â”€ CTA section â”€â”€ */
+        .nf-cta-section { padding: 4rem 2.5rem; text-align: center; max-width: 700px; margin: 0 auto; }
+        .nf-cta-section h2 { font-size: 2.5rem; font-weight: 800; line-height: 1.1; margin-bottom: 1rem; }
+        .nf-cta-section p { color: var(--muted); font-size: .9rem; font-family: 'Space Mono', monospace; line-height: 1.7; margin-bottom: 2rem; }
+        .nf-cta-gradient {
+          background: linear-gradient(135deg, #3b6ef5, #7c3aed);
+          -webkit-background-clip: text;
+          -webkit-text-fill-color: transparent;
+          background-clip: text;
+        }
+
+        /* â”€â”€ Footer â”€â”€ */
+        .nf-footer {
+          border-top: 1px solid var(--border);
+          padding: 1.5rem 2.5rem;
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+        }
+        .nf-footer-text { font-size: .75rem; color: var(--muted); font-family: 'Space Mono', monospace; }
+
+        /* â”€â”€ Responsive â”€â”€ */
+        @media (max-width: 768px) {
+          .nf-hero { grid-template-columns: 1fr; padding: 3rem 1.25rem 2rem; }
+          .nf-canvas-panel { height: 300px; }
+          .nf-h1 { font-size: 2.4rem; }
+          .nf-stats-row { grid-template-columns: repeat(2,1fr); }
+          .nf-nodes-grid { grid-template-columns: 1fr; }
+          .nf-nodes-section { padding: 0 1.25rem 3rem; }
+          .nf-nav { padding: 1rem 1.25rem; }
+          .nf-nav-links a:not(.nf-nav-cta) { display: none; }
+        }
+      `}</style>
+
+      {/* Background particle canvas */}
+      <canvas ref={bgRef} className="nf-bg-canvas" />
+
+      <div className="nf-wrap">
+        {/* â”€â”€ Navbar â”€â”€ */}
+        <nav className="nf-nav">
+          <div className="nf-logo">
+            Next<span>Flow</span>
+          </div>
+          <div className="nf-nav-links">
+            <a href="#">Nodes</a>
+            <a href="#">Workflows</a>
+            <a href="#">Docs</a>
+            <Link
+              href="/sign-in"
+              className="nf-nav-cta"
+              style={{ color: "white" }}
+            >
+              Sign In â†’
+            </Link>
+          </div>
+        </nav>
+
+        {/* â”€â”€ Hero â”€â”€ */}
+        <section className="nf-hero">
+          <div className="nf-hero-left">
+            <div className="nf-badge">
+              <span className="nf-badge-dot" />
+              Now with Gemini API
+            </div>
+
+            <h1 className="nf-h1">
+              <span className="nf-h1-line1">
+                Visual AI
+                <br />
+                Workflows.
+              </span>
+              <br />
+              <span className="nf-h1-line2">Node by Node.</span>
+            </h1>
+
+            <p className="nf-desc">
+              Design and execute multi-step AI pipelines on a drag-and-drop
+              canvas. Connect LLM, image, and video nodes to build intelligent
+              automations â€” powered by Google Gemini.
+            </p>
+
+            <div className="nf-actions">
+              <Link href="/sign-in" className="nf-btn-primary">
+                Get Started â†’
+              </Link>
+              <Link href="/dashboard" className="nf-btn-ghost">
+                See Demo â†—
+              </Link>
+            </div>
+
+            <div className="nf-stack">
+              <span style={{ fontSize: ".7rem" }}>Built with</span>
+              {["Next.js 15", "React Flow", "Gemini", "Trigger.dev"].map(
+                (t) => (
+                  <span key={t} className="nf-tag">
+                    {t}
+                  </span>
+                ),
+              )}
+            </div>
+          </div>
+
+          {/* Flow canvas */}
+          <div className="nf-canvas-panel">
+            <div className="nf-panel-header">
+              <div className="nf-dot r" />
+              <div className="nf-dot y" />
+              <div className="nf-dot g" />
+              <span className="nf-panel-label">workflow-canvas.tsx</span>
+            </div>
+            <div className="nf-exec-badge">
+              <span className="nf-exec-dot" />
+              executing
+            </div>
+            <canvas ref={flowRef} />
+          </div>
+        </section>
+
+        {/* â”€â”€ Stats â”€â”€ */}
+        <div className="nf-stats-row">
+          {[
+            { id: "s1", label: "Custom Nodes" },
+            { id: "s2", label: "REST APIs" },
+            { id: "s3", label: "Async Jobs" },
+            { id: "s4", label: "Pipelines Run" },
+          ].map((s) => (
+            <div key={s.id} className="nf-stat">
+              <div id={s.id} className="nf-stat-num">
+                0
+              </div>
+              <div className="nf-stat-label">{s.label}</div>
+            </div>
+          ))}
+        </div>
+
+        {/* â”€â”€ Nodes grid â”€â”€ */}
+        <section className="nf-nodes-section">
+          <div className="nf-section-label">NODE LIBRARY</div>
+          <div className="nf-section-title">
+            Six powerful nodes.
+            <br />
+            Infinite possibilities.
+          </div>
+          <div className="nf-nodes-grid">
+            {[
+              {
+                icon: "ðŸ§ ",
+                name: "LLM Node",
+                desc: "Process text prompts through Gemini API with configurable temperature, tokens, and system context.",
+                badge: "Gemini Pro",
+                bc: "rgba(59,110,245,.15)",
+                tc: "#3b6ef5",
+                ic: "rgba(59,110,245,.15)",
+              },
+              {
+                icon: "ðŸ–¼ï¸",
+                name: "Image Node",
+                desc: "Upload, analyze, and transform images using Gemini Vision. Describe, classify, or extract data from visual content.",
+                badge: "Vision API",
+                bc: "rgba(124,58,237,.15)",
+                tc: "#7c3aed",
+                ic: "rgba(124,58,237,.15)",
+              },
+              {
+                icon: "ðŸŽ¬",
+                name: "Video Node",
+                desc: "Process video files asynchronously via Trigger.dev. Extract frames, analyze scenes, and generate insights.",
+                badge: "Trigger.dev",
+                bc: "rgba(236,72,153,.15)",
+                tc: "#ec4899",
+                ic: "rgba(236,72,153,.15)",
+              },
+              {
+                icon: "âœ‚ï¸",
+                name: "Crop Node",
+                desc: "Precisely crop and transform images in the pipeline. Define regions, aspect ratios, and smart crop targets.",
+                badge: "Transloadit",
+                bc: "rgba(245,158,11,.15)",
+                tc: "#f59e0b",
+                ic: "rgba(245,158,11,.15)",
+              },
+              {
+                icon: "ðŸ“¤",
+                name: "Extract Node",
+                desc: "Extract structured data, entities, or specific fields from any content type using AI-powered parsing.",
+                badge: "Structured",
+                bc: "rgba(16,185,129,.15)",
+                tc: "#10b981",
+                ic: "rgba(16,185,129,.15)",
+              },
+              {
+                icon: "ðŸ’¾",
+                name: "Output Node",
+                desc: "Capture, format, and persist results from any pipeline. Stream to dashboard, save to PostgreSQL, or export.",
+                badge: "Prisma + PG",
+                bc: "rgba(99,102,241,.15)",
+                tc: "#6366f1",
+                ic: "rgba(99,102,241,.15)",
+              },
+            ].map((n) => (
+              <div key={n.name} className="nf-node-card">
+                <div className="nf-node-icon" style={{ background: n.ic }}>
+                  {n.icon}
+                </div>
+                <div className="nf-node-name">{n.name}</div>
+                <div className="nf-node-desc">{n.desc}</div>
+                <span
+                  className="nf-node-badge"
+                  style={{ background: n.bc, color: n.tc }}
+                >
+                  {n.badge}
+                </span>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {/* â”€â”€ Scrolling tech strip â”€â”€ */}
+        <div className="nf-tech-strip">
+          <div className="nf-tech-track">
+            {[
+              "Next.js 15",
+              "React Flow",
+              "TypeScript",
+              "Google Gemini",
+              "Trigger.dev",
+              "Prisma",
+              "PostgreSQL",
+              "Clerk Auth",
+              "Transloadit",
+              "Zustand",
+              "Tailwind CSS",
+              "Claude AI",
+              "Next.js 15",
+              "React Flow",
+              "TypeScript",
+              "Google Gemini",
+              "Trigger.dev",
+              "Prisma",
+              "PostgreSQL",
+              "Clerk Auth",
+              "Transloadit",
+              "Zustand",
+              "Tailwind CSS",
+              "Claude AI",
+            ].map((t, i) => (
+              <span key={i} className="nf-tech-item">
+                <span className="nf-tech-dot" />
+                {t}
+              </span>
+            ))}
+          </div>
+        </div>
+
+        {/* â”€â”€ CTA â”€â”€ */}
+        <section className="nf-cta-section">
+          <div className="nf-section-label"> GET STARTED</div>
+          <h2>
+            Build your first
+            <br />
+            <span className="nf-cta-gradient">AI pipeline</span> today.
+          </h2>
+          <p>
+            Drop nodes. Draw connections. Execute workflows. From text
+            generation to video processing â€” all in one visual canvas.
+          </p>
+          <Link
+            href="/sign-in"
+            className="nf-btn-primary"
+            style={{
+              display: "inline-block",
+              fontSize: "1rem",
+              padding: ".9rem 2.5rem",
+            }}
+          >
+            Start Building â†’
+          </Link>
+        </section>
+
+        {/* â”€â”€ Footer â”€â”€ */}
+        <footer className="nf-footer">
+          <div className="nf-footer-text">
+            Â© 2025 NextFlow â€” Visual AI Workflow Builder
+          </div>
+          <div className="nf-footer-text" style={{ color: "#3b6ef5" }}>
+            Built with Claude AI
+          </div>
+        </footer>
+      </div>
+    </>
+  );
+}
+
+=== D:\Galaxy.AI\nextflow\trigger\jobs\runLLM.ts ===
+// // export async function POST(req: Request) {
+// //   try {
+// //     const { prompt, workflowId } = await req.json();
+
+// //     console.log("ðŸ”¥ Running LLM for:", workflowId);
+
+// //     const res = await fetch(
+// //       `https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash:generateContent?key=${process.env.GEMINI_API_KEY}`,
+// //       {
+// //         method: "POST",
+// //         headers: {
+// //           "Content-Type": "application/json",
+// //         },
+// //         body: JSON.stringify({
+// //           contents: [
+// //             {
+// //               parts: [{ text: prompt || "Say hello" }],
+// //             },
+// //           ],
+// //         }),
+// //       },
+// //     );
+
+// //     const data = await res.json();
+
+// //     const output =
+// //       data?.candidates?.[0]?.content?.parts?.[0]?.text || "No output";
+
+// //     console.log("ðŸ§  Output:", output);
+
+// //     return Response.json({
+// //       success: true,
+// //       output,
+// //     });
+// //   } catch (err) {
+// //     console.error(err);
+
+// //     return Response.json({
+// //       success: false,
+// //       error: String(err),
+// //     });
+// //   }
+// // }
+
+// import { task } from "@trigger.dev/sdk/v3";
+// // âœ… FIX 1: Trimmed from 6 â†’ 3 models (cuts redundant quota hits)
+// const GEMINI_MODELS = [
+//   "gemini-2.5-flash",
+//   "gemini-2.0-flash",
+//   "gemini-1.5-flash",
+// ];
+
+// // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// // Fetch image and convert to base64 for Gemini vision
+// // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// async function fetchImageAsBase64(
+//   url: string,
+// ): Promise<{ data: string; mimeType: string }> {
+//   const res = await fetch(url);
+//   if (!res.ok) throw new Error(`Failed to fetch image: ${url}`);
+
+//   const contentType = res.headers.get("content-type") ?? "image/jpeg";
+//   const mimeType = contentType.split(";")[0].trim();
+//   const buffer = await res.arrayBuffer();
+//   const data = Buffer.from(buffer).toString("base64");
+
+//   return { data, mimeType };
+// }
+
+// // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// // Call Gemini â€” supports both text-only and vision (image) input
+// // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// async function callGemini(
+//   userMessage: string,
+//   systemPrompt?: string | null,
+//   imageUrl?: string | null,
+// ): Promise<{ output: string; model: string; fallback?: boolean }> {
+//   const skipped: string[] = [];
+
+//   // Pre-fetch image once outside the model loop
+//   let imageData: { data: string; mimeType: string } | null = null;
+//   if (imageUrl) {
+//     try {
+//       imageData = await fetchImageAsBase64(imageUrl);
+//       console.log(`ðŸ–¼ï¸ Image loaded for vision: ${imageUrl.slice(0, 60)}...`);
+//     } catch (err) {
+//       console.warn(`âš ï¸ Could not load image, running text-only: ${err}`);
+//     }
+//   }
+
+//   for (const model of GEMINI_MODELS) {
+//     try {
+//       // Build content parts â€” add image inline if available
+//       const parts: object[] = [];
+
+//       if (imageData) {
+//         parts.push({
+//           inline_data: {
+//             mime_type: imageData.mimeType,
+//             data: imageData.data,
+//           },
+//         });
+//       }
+
+//       parts.push({ text: userMessage });
+
+//       const res = await fetch(
+//         `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${process.env.GEMINI_API_KEY}`,
+//         {
+//           method: "POST",
+//           headers: { "Content-Type": "application/json" },
+//           body: JSON.stringify({
+//             contents: [{ role: "user", parts }],
+//             ...(systemPrompt && {
+//               systemInstruction: { parts: [{ text: systemPrompt }] },
+//             }),
+//           }),
+//         },
+//       );
+
+//       const data = await res.json();
+
+//       if (data?.error) {
+//         const type = data.error.code === 429 ? "quota" : "not_found";
+//         skipped.push(`${model}(${type})`);
+//         continue;
+//       }
+
+//       const output = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+//       if (!output) {
+//         skipped.push(`${model}(empty)`);
+//         continue;
+//       }
+
+//       console.log(
+//         skipped.length > 0
+//           ? `âš¡ skipped: [${skipped.join(", ")}] â†’ âœ… ${model}`
+//           : `âœ… model: ${model}`,
+//       );
+
+//       return { output, model };
+//     } catch {
+//       skipped.push(`${model}(network)`);
+//     }
+//   }
+
+//   const hasQuota = skipped.some((s) => s.includes("quota"));
+//   console.log(`âš ï¸ all models unavailable [${skipped.join(", ")}]`);
+
+//   return {
+//     output: hasQuota
+//       ? "Rate limit reached. Please wait a moment and try again."
+//       : "AI models are currently unavailable. Please try again later.",
+//     model: "none",
+//     fallback: true,
+//   };
+// }
+
+// // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// // Trigger.dev task â€” handles text-only AND vision
+// // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// export const runLLMTask = task({
+//   id: "run-llm",
+//   maxDuration: 300,
+//   retry: {
+//     maxAttempts: 2,
+//     minTimeoutInMs: 1000,
+//     maxTimeoutInMs: 5000,
+//     factor: 2,
+//   },
+//   run: async (payload: {
+//     userMessage: string;
+//     systemPrompt?: string | null;
+//     imageUrl?: string | null; // from CropNode or ExtractNode
+//     workflowId?: string;
+//     nodeId?: string;
+//   }) => {
+//     const { userMessage, systemPrompt, imageUrl, workflowId, nodeId } = payload;
+
+//     console.log(
+//       `ðŸ”¥ run-llm | workflow: ${workflowId ?? "?"} | node: ${nodeId ?? "?"}`,
+//     );
+//     console.log(`ðŸ“ user_message: ${userMessage}`);
+//     console.log(`ðŸŽ­ system_prompt: ${systemPrompt ?? "none"}`);
+//     console.log(`ðŸ–¼ï¸ image_url: ${imageUrl ?? "none"}`);
+
+//     if (!process.env.GEMINI_API_KEY) {
+//       return {
+//         success: false,
+//         output: "Server misconfiguration: GEMINI_API_KEY is missing.",
+//         model: "none",
+//         fallback: true,
+//       };
+//     }
+
+//     if (!userMessage?.trim()) {
+//       return {
+//         success: false,
+//         output: "No message provided.",
+//         model: "none",
+//         fallback: true,
+//       };
+//     }
+
+//     const { output, model, fallback } = await callGemini(
+//       userMessage,
+//       systemPrompt,
+//       imageUrl,
+//     );
+
+//     return {
+//       success: !fallback,
+//       output,
+//       model,
+//       fallback: fallback ?? false,
+//     };
+//   },
+// });
+
+import { task } from "@trigger.dev/sdk/v3";
+
+// âœ… Trimmed to 3 models â€” avoids redundant quota hits
+const GEMINI_MODELS = [
+  "gemini-2.5-flash",
+  "gemini-2.0-flash",
+  "gemini-1.5-flash",
+];
+
+async function fetchImageAsBase64(
+  url: string,
+): Promise<{ data: string; mimeType: string }> {
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`Failed to fetch image: ${url}`);
+
+  const contentType = res.headers.get("content-type") ?? "image/jpeg";
+  const mimeType = contentType.split(";")[0].trim();
+  const buffer = await res.arrayBuffer();
+  const data = Buffer.from(buffer).toString("base64");
+
+  return { data, mimeType };
+}
+
+async function callGemini(
+  userMessage: string,
+  systemPrompt?: string | null,
+  imageUrl?: string | null,
+): Promise<{ output: string; model: string; fallback?: boolean }> {
+  const skipped: string[] = [];
+
+  let imageData: { data: string; mimeType: string } | null = null;
+  if (imageUrl) {
+    try {
+      imageData = await fetchImageAsBase64(imageUrl);
+      console.log(`ðŸ–¼ï¸ Image loaded: ${imageUrl.slice(0, 60)}...`);
+    } catch (err) {
+      console.warn(`âš ï¸ Could not load image, running text-only: ${err}`);
+    }
+  }
+
+  for (const model of GEMINI_MODELS) {
+    try {
+      const parts: object[] = [];
+
+      if (imageData) {
+        parts.push({
+          inline_data: {
+            mime_type: imageData.mimeType,
+            data: imageData.data,
+          },
+        });
+      }
+
+      parts.push({ text: userMessage });
+
+      const res = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${process.env.GEMINI_API_KEY}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            contents: [{ role: "user", parts }],
+            ...(systemPrompt && {
+              systemInstruction: { parts: [{ text: systemPrompt }] },
+            }),
+          }),
+        },
+      );
+
+      const data = await res.json();
+
+      if (data?.error) {
+        const type = data.error.code === 429 ? "quota" : "not_found";
+        skipped.push(`${model}(${type})`);
+        await new Promise((r) => setTimeout(r, 500));
+        continue;
+      }
+
+      const output = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+      if (!output) {
+        skipped.push(`${model}(empty)`);
+        continue;
+      }
+
+      console.log(
+        skipped.length > 0
+          ? `âš¡ skipped: [${skipped.join(", ")}] â†’ âœ… ${model}`
+          : `âœ… model: ${model}`,
+      );
+
+      return { output, model };
+    } catch {
+      skipped.push(`${model}(network)`);
+      await new Promise((r) => setTimeout(r, 500));
+    }
+  }
+
+  const hasQuota = skipped.some((s) => s.includes("quota"));
+  console.log(`âš ï¸ all models unavailable [${skipped.join(", ")}]`);
+
+  return {
+    output: hasQuota
+      ? "Rate limit reached. Please wait a moment and try again."
+      : "AI models are currently unavailable. Please try again later.",
+    model: "none",
+    fallback: true,
+  };
+}
+
+// âœ… No retry block â€” callGemini already handles fallback across models
+export const runLLMTask = task({
+  id: "run-llm",
+  maxDuration: 300,
+  run: async (payload: {
+    userMessage: string;
+    systemPrompt?: string | null;
+    imageUrl?: string | null;
+    workflowId?: string;
+    nodeId?: string;
+  }) => {
+    const { userMessage, systemPrompt, imageUrl, workflowId, nodeId } = payload;
+
+    console.log(
+      `ðŸ”¥ run-llm | workflow: ${workflowId ?? "?"} | node: ${nodeId ?? "?"}`,
+    );
+    console.log(`ðŸ“ user_message: ${userMessage}`);
+    console.log(`ðŸŽ­ system_prompt: ${systemPrompt ?? "none"}`);
+    console.log(`ðŸ–¼ï¸ image_url: ${imageUrl ?? "none"}`);
+
+    if (!process.env.GEMINI_API_KEY) {
+      return {
+        success: false,
+        output: "Server misconfiguration: GEMINI_API_KEY is missing.",
+        model: "none",
+        fallback: true,
+      };
+    }
+
+    if (!userMessage?.trim()) {
+      return {
+        success: false,
+        output: "No message provided.",
+        model: "none",
+        fallback: true,
+      };
+    }
+
+    const { output, model, fallback } = await callGemini(
+      userMessage,
+      systemPrompt,
+      imageUrl,
+    );
+
+    return {
+      success: !fallback,
+      output,
+      model,
+      fallback: fallback ?? false,
+    };
+  },
+});

@@ -40,43 +40,6 @@
 //           type="text"
 //           placeholder="Search nodes..."
 //           value={search}
-//           onChange={(e) => setSearch(e.target.value)}
-//           className="w-full mb-3 px-3 py-2 text-[11px] bg-[#0a0a0a] border border-[#222] rounded-md text-zinc-300 outline-none focus:border-purple-500/40"
-//         />
-
-//         {/* HEADER */}
-//         <div className="text-[9px] text-zinc-500 mb-2 uppercase tracking-wider">
-//           Quick Access
-//         </div>
-
-//         {/* ITEMS */}
-//         {filteredItems.map((item) => (
-//           <div
-//             key={item.label}
-//             draggable
-//             onDragStart={(e) => onDragStart(e, item.label)}
-//             className="flex items-center gap-2 px-3 py-2 mb-2 rounded-md bg-[#1a1a1a] border border-[#2a2a2a] text-[11px] text-zinc-300 cursor-grab hover:bg-[#222] hover:border-[#444] hover:text-white active:cursor-grabbing transition"
-//           >
-//             {/* ICON */}
-//             <div
-//               className={`w-5 h-5 flex items-center justify-center rounded ${item.color} text-[10px]`}
-//             >
-//               {item.icon}
-//             </div>
-
-//             {/* LABEL */}
-//             <span>{item.label}</span>
-//           </div>
-//         ))}
-
-//         {/* EMPTY */}
-//         {filteredItems.length === 0 && (
-//           <p className="text-[10px] text-zinc-500 mt-3">No nodes found</p>
-//         )}
-//       </div>
-//     </div>
-//   );
-// }
 
 "use client";
 
