@@ -1,172 +1,10 @@
-// import { task } from "@trigger.dev/sdk/v3";
-
-// // ✅ Trimmed to 3 models — avoids redundant quota hits
-// const GEMINI_MODELS = [
-//   "gemini-2.5-flash",
-//   "gemini-2.0-flash",
-//   "gemini-1.5-flash",
-// ];
-
-// async function fetchImageAsBase64(
-//   url: string,
-// ): Promise<{ data: string; mimeType: string }> {
-//   const res = await fetch(url);
-//   if (!res.ok) throw new Error(`Failed to fetch image: ${url}`);
-
-//   const contentType = res.headers.get("content-type") ?? "image/jpeg";
-//   const mimeType = contentType.split(";")[0].trim();
-//   const buffer = await res.arrayBuffer();
-//   const data = Buffer.from(buffer).toString("base64");
-
-//   return { data, mimeType };
-// }
-
-// async function callGemini(
-//   userMessage: string,
-//   systemPrompt?: string | null,
-//   imageUrl?: string | null,
-// ): Promise<{ output: string; model: string; fallback?: boolean }> {
-//   const skipped: string[] = [];
-
-//   let imageData: { data: string; mimeType: string } | null = null;
-//   if (imageUrl) {
-//     try {
-//       imageData = await fetchImageAsBase64(imageUrl);
-//       console.log(`🖼️ Image loaded: ${imageUrl.slice(0, 60)}...`);
-//     } catch (err) {
-//       console.warn(`⚠️ Could not load image, running text-only: ${err}`);
-//     }
-//   }
-
-//   for (const model of GEMINI_MODELS) {
-//     try {
-//       const parts: object[] = [];
-
-//       if (imageData) {
-//         parts.push({
-//           inline_data: {
-//             mime_type: imageData.mimeType,
-//             data: imageData.data,
-//           },
-//         });
-//       }
-
-//       parts.push({ text: userMessage });
-
-//       const res = await fetch(
-//         `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${process.env.GEMINI_API_KEY}`,
-//         {
-//           method: "POST",
-//           headers: { "Content-Type": "application/json" },
-//           body: JSON.stringify({
-//             contents: [{ role: "user", parts }],
-//             ...(systemPrompt && {
-//               systemInstruction: { parts: [{ text: systemPrompt }] },
-//             }),
-//           }),
-//         },
-//       );
-
-//       const data = await res.json();
-
-//       if (data?.error) {
-//         const type = data.error.code === 429 ? "quota" : "not_found";
-//         skipped.push(`${model}(${type})`);
-//         await new Promise((r) => setTimeout(r, 500));
-//         continue;
-//       }
-
-//       const output = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-//       if (!output) {
-//         skipped.push(`${model}(empty)`);
-//         continue;
-//       }
-
-//       console.log(
-//         skipped.length > 0
-//           ? `⚡ skipped: [${skipped.join(", ")}] → ✅ ${model}`
-//           : `✅ model: ${model}`,
-//       );
-
-//       return { output, model };
-//     } catch {
-//       skipped.push(`${model}(network)`);
-//       await new Promise((r) => setTimeout(r, 500));
-//     }
-//   }
-
-//   const hasQuota = skipped.some((s) => s.includes("quota"));
-//   console.log(`⚠️ all models unavailable [${skipped.join(", ")}]`);
-
-//   return {
-//     output: hasQuota
-//       ? "Rate limit reached. Please wait a moment and try again."
-//       : "AI models are currently unavailable. Please try again later.",
-//     model: "none",
-//     fallback: true,
-//   };
-// }
-
-// // ✅ No retry block — callGemini already handles fallback across models
-// export const runLLMTask = task({
-//   id: "run-llm",
-//   maxDuration: 300,
-//   run: async (payload: {
-//     userMessage: string;
-//     systemPrompt?: string | null;
-//     imageUrl?: string | null;
-//     workflowId?: string;
-//     nodeId?: string;
-//   }) => {
-//     const { userMessage, systemPrompt, imageUrl, workflowId, nodeId } = payload;
-
-//     console.log(
-//       `🔥 run-llm | workflow: ${workflowId ?? "?"} | node: ${nodeId ?? "?"}`,
-//     );
-//     console.log(`📝 user_message: ${userMessage}`);
-//     console.log(`🎭 system_prompt: ${systemPrompt ?? "none"}`);
-//     console.log(`🖼️ image_url: ${imageUrl ?? "none"}`);
-
-//     if (!process.env.GEMINI_API_KEY) {
-//       return {
-//         success: false,
-//         output: "Server misconfiguration: GEMINI_API_KEY is missing.",
-//         model: "none",
-//         fallback: true,
-//       };
-//     }
-
-//     if (!userMessage?.trim()) {
-//       return {
-//         success: false,
-//         output: "No message provided.",
-//         model: "none",
-//         fallback: true,
-//       };
-//     }
-
-//     const { output, model, fallback } = await callGemini(
-//       userMessage,
-//       systemPrompt,
-//       imageUrl,
-//     );
-
-//     return {
-//       success: !fallback,
-//       output,
-//       model,
-//       fallback: fallback ?? false,
-//     };
-//   },
-// });
-
 import { task } from "@trigger.dev/sdk/v3";
 
 // ─────────────────────────────────────────────────────────────
 // Model chains
 //  - Text only  → Groq first (fast + free), Gemini as fallback
 //  - With image → Gemini only (the Groq models here are text-only)
-// Verified against GET https://api.groq.com/openai/v1/models
+// IDs verified against GET https://api.groq.com/openai/v1/models
 // ─────────────────────────────────────────────────────────────
 type Provider = "groq" | "gemini";
 type Step = { provider: Provider; model: string };
@@ -185,24 +23,50 @@ const VISION_CHAIN: Step[] = [
 
 const label = (s: Step) => `${s.provider}:${s.model}`;
 
+// Only these may be chosen from the dropdown. Anything else (e.g. a retired
+// llama model saved in an old workflow) is ignored and the default chain runs.
+const KNOWN_MODELS = new Set(TEXT_CHAIN.map(label));
+
+// The dropdown sends "provider:model" (e.g. "groq:openai/gpt-oss-20b").
+// A bare id is also accepted.
+function parseSelected(raw: string): Step {
+  const i = raw.indexOf(":");
+  if (i > 0) {
+    const p = raw.slice(0, i);
+    if (p === "groq" || p === "gemini") {
+      return { provider: p, model: raw.slice(i + 1) };
+    }
+  }
+  return { provider: raw.startsWith("gemini") ? "gemini" : "groq", model: raw };
+}
+
 function buildChain(
-  selectedModel: string | null | undefined,
+  selected: string | null | undefined,
   hasImage: boolean,
 ): Step[] {
   const base = hasImage ? VISION_CHAIN : TEXT_CHAIN;
 
-  // "default" / empty → use the base chain as-is (Groq first for text)
-  if (!selectedModel || selectedModel === "default") return base;
+  // "default" / empty → base chain (Groq first for text)
+  if (!selected || selected === "default") return base;
 
-  const provider: Provider = selectedModel.startsWith("gemini")
-    ? "gemini"
-    : "groq";
+  const chosen = parseSelected(selected);
 
-  // A text-only Groq model can't handle an image → ignore the selection
-  if (hasImage && provider === "groq") return base;
+  if (!KNOWN_MODELS.has(label(chosen))) {
+    console.warn(
+      `⚠️ ignoring unknown/retired model "${selected}" → default chain`,
+    );
+    return base;
+  }
 
-  const chosen: Step = { provider, model: selectedModel };
-  // Put the user's choice first, then the rest as fallback (no duplicates)
+  // Groq models here are text-only → can't take an image
+  if (hasImage && chosen.provider === "groq") {
+    console.log(
+      `ℹ️ ${label(chosen)} is text-only, image attached → using Gemini chain`,
+    );
+    return base;
+  }
+
+  // User's choice first, the rest as fallback (no duplicates)
   return [chosen, ...base.filter((s) => label(s) !== label(chosen))];
 }
 
@@ -227,9 +91,6 @@ async function fetchImageAsBase64(
   return { data, mimeType };
 }
 
-// ─────────────────────────────────────────────────────────────
-// Provider calls — each returns text, or throws { status, message }
-// ─────────────────────────────────────────────────────────────
 class ProviderError extends Error {
   status: number;
   constructor(status: number, message: string) {
@@ -238,6 +99,9 @@ class ProviderError extends Error {
   }
 }
 
+// ─────────────────────────────────────────────────────────────
+// Provider calls — return text, or throw ProviderError
+// ─────────────────────────────────────────────────────────────
 async function callGroq(
   model: string,
   userMessage: string,
@@ -323,16 +187,16 @@ async function runChain(args: {
   userMessage: string;
   systemPrompt?: string | null;
   imageUrl?: string | null;
-  selectedModel?: string | null;
+  model?: string | null;
 }): Promise<{
   output: string;
   model: string;
   provider: Provider;
   fallback: boolean;
 }> {
-  const { userMessage, systemPrompt, imageUrl, selectedModel } = args;
+  const { userMessage, systemPrompt, imageUrl, model } = args;
 
-  const chain = buildChain(selectedModel, !!imageUrl);
+  const chain = buildChain(model, !!imageUrl);
   console.log(`🔗 chain: ${chain.map(label).join(" -> ")}`);
 
   // Load the image once (only Gemini uses it)
@@ -348,7 +212,7 @@ async function runChain(args: {
   const skipped: string[] = [];
 
   for (const step of chain) {
-    // Skip a provider whose key is missing instead of failing the whole run
+    // Missing key → skip that provider instead of failing the whole run
     if (step.provider === "groq" && !process.env.GROQ_API_KEY) {
       skipped.push(`${label(step)}(no_key)`);
       continue;
@@ -413,18 +277,12 @@ export const runLLMTask = task({
     userMessage: string;
     systemPrompt?: string | null;
     imageUrl?: string | null;
-    selectedModel?: string | null; // "default" or a model id from the node dropdown
+    model?: string | null; // "default" or "provider:model" from the node dropdown
     workflowId?: string;
     nodeId?: string;
   }) => {
-    const {
-      userMessage,
-      systemPrompt,
-      imageUrl,
-      selectedModel,
-      workflowId,
-      nodeId,
-    } = payload;
+    const { userMessage, systemPrompt, imageUrl, model, workflowId, nodeId } =
+      payload;
 
     console.log(
       `🔥 run-llm | workflow: ${workflowId ?? "?"} | node: ${nodeId ?? "?"}`,
@@ -432,14 +290,14 @@ export const runLLMTask = task({
     console.log(`📝 user_message: ${userMessage}`);
     console.log(`🎭 system_prompt: ${systemPrompt ?? "none"}`);
     console.log(`🖼️ image_url: ${imageUrl ?? "none"}`);
-    console.log(`🎛️ selected_model: ${selectedModel ?? "default"}`);
+    console.log(`🎛️ selected_model: ${model ?? "default"}`);
 
     if (!userMessage?.trim()) {
       return {
         success: false,
         output: "No message provided.",
         model: "none",
-        provider: "groq",
+        provider: "groq" as Provider,
         fallback: true,
       };
     }
@@ -448,7 +306,7 @@ export const runLLMTask = task({
       userMessage,
       systemPrompt,
       imageUrl,
-      selectedModel,
+      model,
     });
 
     return { success: !result.fallback, ...result };

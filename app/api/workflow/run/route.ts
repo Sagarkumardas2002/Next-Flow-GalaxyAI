@@ -102,12 +102,20 @@ export async function POST(req: Request) {
       });
     };
 
-    // ── STEP 1: Fire the Trigger.dev task ──
+    // -- DEBUG: which Trigger.dev key is actually live (only first 8 chars) --
+    console.log(
+      "TRIGGER KEY PREFIX:",
+      process.env.TRIGGER_SECRET_KEY?.slice(0, 8),
+      "| VERCEL_ENV:",
+      process.env.VERCEL_ENV,
+    );
+
+    // -- STEP 1: Fire the Trigger.dev task --
     const handle = await tasks.trigger<typeof runLLMTask>("run-llm", {
       userMessage,
       systemPrompt: systemPrompt ?? null,
       imageUrl: imageUrl ?? null,
-            selectedModel: model ?? null,
+      model: model ?? null,
       workflowId,
       nodeId,
     });
@@ -116,7 +124,7 @@ export async function POST(req: Request) {
       `Triggered run-llm | runId: ${handle.id} | model: ${model ?? "default"}`,
     );
 
-    // ── STEP 2: Poll (max 1 minute, then cancel) ──
+    // -- STEP 2: Poll (max 1 minute, then cancel) --
     let lastStatus = "";
 
     while (Date.now() - startedAt < MAX_WAIT_MS) {
